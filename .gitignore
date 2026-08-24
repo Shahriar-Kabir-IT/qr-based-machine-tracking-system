@@ -1,0 +1,35 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode
+.idea
+.DS_Store
+*.suo
+*.sw?
+
+# OS
+Thumbs.db
+
+# Build
+*.tsbuildinfo
+
+# Backup files
+*.sql
+*.dump
+*.backup
+
+# Claude
+.claude

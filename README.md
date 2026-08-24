@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and fill in your own values — `.env` is gitignor
 
 ## 🚧 Status
 
-In active development. See [Issues](../../issues) for current progress.
+**This application is currently under development.** Features and APIs may change without notice. Not yet recommended for production use outside of the pilot deployment.
 
 ## 📄 License
 
