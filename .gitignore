@@ -34,5 +34,8 @@ Thumbs.db
 # Documents
 *.docx
 
+# Scripts
+start-*.sh
+
 # Claude
 .claude
