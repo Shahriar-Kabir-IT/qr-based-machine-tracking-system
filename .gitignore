@@ -31,5 +31,8 @@ Thumbs.db
 *.dump
 *.backup
 
+# Documents
+*.docx
+
 # Claude
 .claude
