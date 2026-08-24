@@ -37,5 +37,8 @@ Thumbs.db
 # Scripts
 start-*.sh
 
-# Claude
+# IDE / Tool config
 .claude
+
+# Graphify
+graphify-out
