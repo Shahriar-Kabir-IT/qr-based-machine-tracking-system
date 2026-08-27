@@ -122,7 +122,7 @@ export default function UserManagement() {
           <Form.Item name="role" label="Role" rules={[{ required: true }]}>
             <Select options={roleOptions} />
           </Form.Item>
-          <Form.Item name="facility" label="Facility"><Input placeholder="e.g. AGL, ABM" /></Form.Item>
+          <Form.Item name="facility" label="Facility"><Input placeholder="e.g. AGL, ABM, ASL" /></Form.Item>
           <Form.Item name="floor" label="Floor"><Input placeholder="e.g. 3RD, 4TH" /></Form.Item>
         </Form>
       </Modal>

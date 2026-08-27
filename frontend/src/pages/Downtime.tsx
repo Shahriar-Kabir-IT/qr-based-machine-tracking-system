@@ -16,6 +16,7 @@ const factoryOptions = [
   { value: 'AGL', label: 'AGL' },
   { value: 'AJL', label: 'AJL' },
   { value: 'ABM', label: 'ABM' },
+  { value: 'ASL', label: 'ASL' },
 ];
 
 export default function Downtime() {

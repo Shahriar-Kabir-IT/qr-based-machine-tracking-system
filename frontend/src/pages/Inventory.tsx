@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Space, Typography, message, Card, Divider, Row, Col, Statistic, Badge, Tooltip } from 'antd';
-import { PlusOutlined, CheckOutlined, CloseOutlined, PrinterOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, CheckOutlined, CloseOutlined, PrinterOutlined, EyeOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { getMachineTypeDisplay, machineTypeOptions } from '../utils/machineTypes';
 
 const sectionOptions = [
   { value: 'SE', label: 'SE - Sewing' },
@@ -13,19 +14,6 @@ const sectionOptions = [
   { value: 'FN', label: 'FN - Finishing' },
 ];
 
-
-const machineTypeOptions = [
-  { value: 'SNLS', label: 'SNLS - Single Needle Lock Stitch' },
-  { value: 'DNLS', label: 'DNLS - Double Needle Lock Stitch' },
-  { value: 'OVLK', label: 'OVLK - Overlock' },
-  { value: 'FLAT', label: 'FLAT - Flatlock' },
-  { value: 'BTN', label: 'BTN - Button Attach' },
-  { value: 'BTNHL', label: 'BTNHL - Buttonhole' },
-  { value: 'BAR', label: 'BAR - Bartack' },
-  { value: 'KAN', label: 'KAN - Kansai' },
-  { value: 'FED', label: 'FED - Feed of the Arm' },
-  { value: 'ZIG', label: 'ZIG - Zigzag' },
-];
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   active: { color: 'success', label: 'Active' },
@@ -44,21 +32,48 @@ function QrTagPrint({ machine }: { machine: any }) {
     if (!tagRef.current) return;
     const pw = window.open('', '_blank', 'width=400,height=120');
     if (!pw) return;
-    pw.document.write(`<html><head><title>QR Tag - ${machine.machineId}</title><style>@page{size:4in 1in;margin:0}body{margin:0;padding:0}.tag{display:flex;align-items:center;gap:8px;padding:4px 8px;width:4in;height:1in;box-sizing:border-box;font-family:Arial,sans-serif}.tag svg{flex-shrink:0}.info{flex:1;overflow:hidden}.info .aid{font-size:14px;font-weight:bold;margin:0}.info .d{font-size:9px;margin:0;color:#333}</style></head><body><div class="tag">${tagRef.current.querySelector('svg')?.outerHTML||''}<div class="info"><p class="aid">${machine.machineId}</p><p class="d">${machine.machineType} | ${machine.brand || ''} ${machine.modelNo || ''}</p><p class="d">${machine.facility} / ${machine.floor}${machine.line?' / '+machine.line:''}</p><p class="d">S/N: ${machine.mfgSerialNo||'N/A'}</p></div></div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`);
+    const td = getMachineTypeDisplay(machine.machineType);
+    pw.document.write(`<html><head><title>QR Tag - ${machine.machineId}</title><style>@page{size:4in 1in;margin:0}body{margin:0;padding:0}.tag{display:flex;align-items:center;gap:8px;padding:4px 8px;width:4in;height:1in;box-sizing:border-box;font-family:Arial,sans-serif}.tag svg{flex-shrink:0}.info{flex:1;overflow:hidden}.info .aid{font-size:22px;font-weight:bold;margin:0;letter-spacing:1px}.info .d{font-size:9px;margin:0;color:#333}</style></head><body><div class="tag">${tagRef.current.querySelector('svg')?.outerHTML||''}<div class="info"><p class="aid">${machine.machineId}</p><p class="d">${td.fullName} | ${machine.brand || ''} ${machine.modelNo || ''}</p><p class="d">S/N: ${machine.mfgSerialNo||'N/A'}</p></div></div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`);
     pw.document.close();
+  };
+  const handleSaveSvg = () => {
+    if (!tagRef.current) return;
+    const qrSvg = tagRef.current.querySelector('svg');
+    if (!qrSvg) return;
+    const qrMarkup = new XMLSerializer().serializeToString(qrSvg);
+    const td = getMachineTypeDisplay(machine.machineType);
+    const qrEmbed = qrMarkup.replace(/<svg[^>]*>/, `<svg xmlns="http://www.w3.org/2000/svg" x="18" y="15" width="148" height="148" viewBox="0 0 72 72">`);
+    const tagSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="580" height="180" viewBox="0 0 580 180">
+  <rect width="580" height="180" fill="#fafafa" rx="8" stroke="#d9d9d9" stroke-dasharray="6,4"/>
+  ${qrEmbed}
+  <text x="185" y="55" font-family="Arial,sans-serif" font-size="36" font-weight="bold" letter-spacing="1.5" fill="#000">${machine.machineId}</text>
+  <text x="185" y="95" font-family="Arial,sans-serif" font-size="16" fill="#666">${td.fullName} | ${machine.brand || ''} ${machine.modelNo || ''}</text>
+  <text x="185" y="130" font-family="Arial,sans-serif" font-size="14" fill="#888">S/N: ${machine.mfgSerialNo || 'N/A'}</text>
+</svg>`;
+    const blob = new Blob([tagSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${machine.machineId}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
   return (
     <div>
       <div ref={tagRef} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16, border: '1px dashed #d9d9d9', borderRadius: 8, background: '#fafafa' }}>
         <QRCodeSVG value={machine.machineId} size={72} level="M" />
         <div>
-          <Typography.Title level={5} style={{ margin: 0, letterSpacing: 1 }}>{machine.machineId}</Typography.Title>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{machine.machineType} | {machine.brand || ''} {machine.modelNo || ''}</Typography.Text><br />
-          <Typography.Text type="secondary" style={{ fontSize: 11 }}>{machine.facility} / {machine.floor}{machine.line ? ` / ${machine.line}` : ''}</Typography.Text><br />
+          <Typography.Title level={3} style={{ margin: 0, letterSpacing: 1 }}>{machine.machineId}</Typography.Title>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{getMachineTypeDisplay(machine.machineType).fullName} | {machine.brand || ''} {machine.modelNo || ''}</Typography.Text><br />
           <Typography.Text type="secondary" style={{ fontSize: 11 }}>S/N: {machine.mfgSerialNo || 'N/A'}</Typography.Text>
         </div>
       </div>
-      <Button icon={<PrinterOutlined />} onClick={handlePrint} style={{ marginTop: 8 }} size="small" block>Print QR Tag</Button>
+      <Space style={{ marginTop: 8, width: '100%' }}>
+        <Button icon={<PrinterOutlined />} onClick={handlePrint} size="small" style={{ flex: 1 }}>Print QR Tag</Button>
+        <Button icon={<DownloadOutlined />} onClick={handleSaveSvg} size="small" style={{ flex: 1 }}>Save QR (.svg)</Button>
+      </Space>
     </div>
   );
 }
@@ -143,11 +158,12 @@ export default function Inventory() {
     },
     {
       title: 'Type', dataIndex: 'machineType', key: 'type',
-      filters: uniqueTypes.map((t) => ({ text: t, value: t })),
-      onFilter: (value: any, record: any) => record.machineType === value,
-      sorter: (a: any, b: any) => a.machineType.localeCompare(b.machineType),
-      width: 70,
-      render: (v: string) => <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>{v}</Tag>,
+      filters: [...new Map(uniqueTypes.map((t) => { const fn = getMachineTypeDisplay(t).fullName; return [fn, { text: fn, value: fn }]; })).values()].sort((a, b) => a.text.localeCompare(b.text)),
+      onFilter: (value: any, record: any) => getMachineTypeDisplay(record.machineType).fullName === value,
+      sorter: (a: any, b: any) => getMachineTypeDisplay(a.machineType).fullName.localeCompare(getMachineTypeDisplay(b.machineType).fullName),
+      width: 200,
+      ellipsis: true,
+      render: (v: string) => { const d = getMachineTypeDisplay(v); return <span style={{ fontSize: 12 }}>{d.fullName}</span>; },
     },
     {
       title: 'Brand / Model', key: 'brandModel',
@@ -245,7 +261,7 @@ export default function Inventory() {
               allowClear
               style={{ width: 100 }}
               size="small"
-              options={[{ value: 'AGL', label: 'AGL' }, { value: 'AJL', label: 'AJL' }, { value: 'ABM', label: 'ABM' }]}
+              options={[{ value: 'AGL', label: 'AGL' }, { value: 'AJL', label: 'AJL' }, { value: 'ABM', label: 'ABM' }, { value: 'ASL', label: 'ASL' }]}
             />
           )}
           <Input.Search placeholder="Search..." onSearch={setSearch} allowClear style={{ width: 200 }} size="small" prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />} />
@@ -289,7 +305,7 @@ export default function Inventory() {
           </Row>
           <Row gutter={12}>
             <Col span={8}><Form.Item name="year" label="Year"><Input placeholder="2006" /></Form.Item></Col>
-            <Col span={8}><Form.Item name="facility" label="Factory" rules={[{ required: true }]}><Select options={[{ value: 'AGL' }, { value: 'AJL' }, { value: 'ABM' }]} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="facility" label="Factory" rules={[{ required: true }]}><Select options={[{ value: 'AGL' }, { value: 'AJL' }, { value: 'ABM' }, { value: 'ASL' }]} /></Form.Item></Col>
             <Col span={8}><Form.Item name="floor" label="Floor" rules={[{ required: true }]}><Input placeholder="4TH" /></Form.Item></Col>
           </Row>
           <Row gutter={12}>
@@ -314,8 +330,8 @@ export default function Inventory() {
               <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Asset ID</Typography.Text><br /><span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{detailModal.assetId || 'Not assigned'}</span></Col>
               <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Machine No</Typography.Text><br /><span style={{ fontFamily: 'monospace' }}>{detailModal.machineId}</span></Col>
               <Col span={8}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Section</Typography.Text><br />{detailModal.section || 'SE'}</Col>
-              <Col span={8}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Type</Typography.Text><br /><Tag color="blue" style={{ margin: 0, fontSize: 11 }}>{detailModal.machineType}</Tag></Col>
               <Col span={8}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Status</Typography.Text><br /><Badge status={(statusConfig[detailModal.status]?.color || 'default') as any} text={statusConfig[detailModal.status]?.label || detailModal.status} /></Col>
+              <Col span={24}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Type</Typography.Text><br /><span style={{ fontSize: 13, fontWeight: 500 }}>{getMachineTypeDisplay(detailModal.machineType).fullName}</span></Col>
               <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Brand</Typography.Text><br />{detailModal.brand || '—'}</Col>
               <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Model</Typography.Text><br />{detailModal.modelNo || '—'}</Col>
               <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Serial No</Typography.Text><br />{detailModal.mfgSerialNo || '—'}</Col>

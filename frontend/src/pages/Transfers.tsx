@@ -139,6 +139,7 @@ export default function Transfers() {
               { value: 'AGL', label: 'AGL' },
               { value: 'AJL', label: 'AJL' },
               { value: 'ABM', label: 'ABM' },
+              { value: 'ASL', label: 'ASL' },
             ]}
           />
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>New Transfer</Button>
@@ -154,11 +155,11 @@ export default function Transfers() {
               options={machines.map((m: any) => ({ value: m.id, label: `${m.machineId} - ${m.machineType} (${m.currentFacility})` }))} />
           </Form.Item>
           <Form.Item name="fromFacility" label="From Facility" rules={[{ required: true }]}>
-            <Select options={[{ value: 'AGL', label: 'AGL' }, { value: 'AJL', label: 'AJL' }, { value: 'ABM', label: 'ABM' }]} />
+            <Select options={[{ value: 'AGL', label: 'AGL' }, { value: 'AJL', label: 'AJL' }, { value: 'ABM', label: 'ABM' }, { value: 'ASL', label: 'ASL' }]} />
           </Form.Item>
           <Form.Item name="fromFloor" label="From Floor" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="toFacility" label="To Facility" rules={[{ required: true }]}>
-            <Select options={[{ value: 'AGL', label: 'AGL' }, { value: 'AJL', label: 'AJL' }, { value: 'ABM', label: 'ABM' }]} />
+            <Select options={[{ value: 'AGL', label: 'AGL' }, { value: 'AJL', label: 'AJL' }, { value: 'ABM', label: 'ABM' }, { value: 'ASL', label: 'ASL' }]} />
           </Form.Item>
           <Form.Item name="toFloor" label="To Floor" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="basis" label="Basis" rules={[{ required: true }]}>

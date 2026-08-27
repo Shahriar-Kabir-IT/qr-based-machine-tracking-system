@@ -13,6 +13,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import api from '../api/client';
 import dayjs from 'dayjs';
+import { getFullName } from '../utils/machineTypes';
 
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
@@ -35,7 +36,8 @@ export default function Dashboard() {
 
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
-  const { stats, machinesByFloor: rawFloorData, topMachineTypes, recentBreakdowns, overdueLoans, returnRequests } = data;
+  const { stats, machinesByFloor: rawFloorData, topMachineTypes: rawTopTypes, recentBreakdowns, overdueLoans, returnRequests } = data;
+  const topMachineTypes = (rawTopTypes as any[]).map((t: any) => ({ ...t, machineType: getFullName(t.machineType) }));
 
   const facilities = [...new Set((rawFloorData as any[]).map((d: any) => d.facility))].sort();
   const floorChartData = (() => {
@@ -194,11 +196,11 @@ export default function Dashboard() {
         </Col>
         <Col xs={24} lg={12}>
           <Card title="Top Machine Types" size="small">
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={Math.max(250, topMachineTypes.length * 40)}>
               <BarChart data={topMachineTypes} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
-                <YAxis type="category" dataKey="machineType" width={100} />
+                <YAxis type="category" dataKey="machineType" width={200} style={{ fontSize: 11 }} />
                 <RechartsTooltip />
                 <Bar dataKey="count" fill="#722ed1" />
               </BarChart>
