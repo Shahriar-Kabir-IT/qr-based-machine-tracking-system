@@ -43,6 +43,9 @@ export class MachinesService {
   }
 
   async create(data: Partial<Machine>): Promise<Machine> {
+    if (!data.machineId && data.facility && data.machineType) {
+      data.machineId = await this.generateMachineId(data.facility, data.machineType);
+    }
     const machine = this.machinesRepo.create({
       ...data,
       status: MachineStatus.PENDING_SUPER_ADMIN,
@@ -50,6 +53,21 @@ export class MachinesService {
       currentFloor: data.floor,
     });
     return this.machinesRepo.save(machine);
+  }
+
+  async generateMachineId(facility: string, machineType: string): Promise<string> {
+    const prefix = `${facility}-${machineType}`;
+    const last = await this.machinesRepo
+      .createQueryBuilder('m')
+      .where('m.machineId LIKE :prefix', { prefix: `${prefix}-%` })
+      .orderBy('m.machineId', 'DESC')
+      .getOne();
+    let seq = 1;
+    if (last?.machineId) {
+      const parts = last.machineId.split('-');
+      seq = parseInt(parts[parts.length - 1], 10) + 1;
+    }
+    return `${prefix}-${String(seq).padStart(5, '0')}`;
   }
 
   async firstApprove(id: number, approvedBy: number): Promise<Machine> {
@@ -97,6 +115,50 @@ export class MachinesService {
 
   async updateStatusAndLocation(id: number, status: MachineStatus, facility: string, floor: string): Promise<void> {
     await this.machinesRepo.update(id, { status, currentFacility: facility, currentFloor: floor });
+  }
+
+  async permanentTransfer(id: number, newFacility: string, newFloor: string): Promise<void> {
+    await this.machinesRepo.update(id, {
+      facility: newFacility,
+      floor: newFloor,
+      currentFacility: newFacility,
+      currentFloor: newFloor,
+      status: MachineStatus.ACTIVE,
+    });
+  }
+
+  async internalTransfer(id: number, newFloor: string, newLine?: string): Promise<void> {
+    const update: Partial<Machine> = {
+      floor: newFloor,
+      currentFloor: newFloor,
+      status: MachineStatus.ACTIVE,
+    };
+    if (newLine) update.line = newLine;
+    await this.machinesRepo.update(id, update);
+  }
+
+  async reassignMachineId(id: number, newFacility: string): Promise<string> {
+    const machine = await this.findOne(id);
+    if (!machine) throw new BadRequestException('Machine not found');
+    const parts = machine.machineId.split('-');
+    if (parts.length < 3) return machine.machineId;
+    const oldFacility = parts[0];
+    if (oldFacility === newFacility) return machine.machineId;
+    const typeCode = parts[1];
+    const prefix = `${newFacility}-${typeCode}`;
+    const last = await this.machinesRepo
+      .createQueryBuilder('m')
+      .where('m.machineId LIKE :prefix', { prefix: `${prefix}-%` })
+      .orderBy('m.machineId', 'DESC')
+      .getOne();
+    let seq = 1;
+    if (last?.machineId) {
+      const lastParts = last.machineId.split('-');
+      seq = parseInt(lastParts[lastParts.length - 1], 10) + 1;
+    }
+    const newMachineId = `${prefix}-${String(seq).padStart(5, '0')}`;
+    await this.machinesRepo.update(id, { machineId: newMachineId, facility: newFacility });
+    return newMachineId;
   }
 
   async count(): Promise<number> {

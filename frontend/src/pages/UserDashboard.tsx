@@ -4,6 +4,7 @@ import { PlusOutlined, ClockCircleOutlined, CloseCircleOutlined, InboxOutlined, 
 import type { ColumnsType } from 'antd/es/table';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { getMachineTypeDisplay } from '../utils/machineTypes';
 import dayjs from 'dayjs';
 
 const approvalSteps = ['pending_super_admin', 'pending_admin', 'active'];
@@ -31,18 +32,7 @@ const sectionOptions = [
 ];
 const sectionLabels: Record<string, string> = { SE: 'Sewing', CU: 'Cutting', UT: 'Utility', FN: 'Finishing' };
 
-const machineTypeOptions = [
-  { value: 'SNLS', label: 'SNLS - Single Needle Lock Stitch' },
-  { value: 'DNLS', label: 'DNLS - Double Needle Lock Stitch' },
-  { value: 'OVLK', label: 'OVLK - Overlock' },
-  { value: 'FLAT', label: 'FLAT - Flatlock' },
-  { value: 'BTN', label: 'BTN - Button Attach' },
-  { value: 'BTNHL', label: 'BTNHL - Buttonhole' },
-  { value: 'BAR', label: 'BAR - Bartack' },
-  { value: 'KAN', label: 'KAN - Kansai' },
-  { value: 'FED', label: 'FED - Feed of the Arm' },
-  { value: 'ZIG', label: 'ZIG - Zigzag' },
-];
+import { machineTypeOptions } from '../utils/machineTypes';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -57,6 +47,9 @@ export default function UserDashboard() {
   const [transferModal, setTransferModal] = useState<any>(null);
   const [detailModal, setDetailModal] = useState<any>(null);
   const [basisValue, setBasisValue] = useState<string | null>(null);
+  const [machineDetailModal, setMachineDetailModal] = useState<any>(null);
+  const [nextMachineId, setNextMachineId] = useState('');
+  const [suggestions, setSuggestions] = useState<{ floors: string[]; sections: string[]; lines: string[] }>({ floors: [], sections: [], lines: [] });
   const [form] = Form.useForm();
   const [transferForm] = Form.useForm();
 
@@ -89,13 +82,26 @@ export default function UserDashboard() {
     });
   };
 
-  useEffect(() => { loadMachines(); loadRequests(); loadTransfers(); loadLoaned(); }, []);
+  const loadSuggestions = () => {
+    api.get('/rental/suggestions').then((res) => {
+      setSuggestions({ floors: res.data.floors || [], sections: res.data.sections || [], lines: res.data.lines || [] });
+    });
+  };
+
+  useEffect(() => { loadMachines(); loadRequests(); loadTransfers(); loadLoaned(); loadSuggestions(); }, []);
+
+  const fetchNextId = async (fac?: string, machineType?: string) => {
+    if (!fac || !machineType) { setNextMachineId(''); return; }
+    const res = await api.get('/machines/next-id', { params: { facility: fac, type: machineType } });
+    setNextMachineId(res.data.machineId || '');
+  };
 
   const handleAddMachine = async (values: any) => {
     await api.post('/machines', { ...values, facility });
     message.success('Machine submitted for approval');
     setAddModal(false);
     form.resetFields();
+    setNextMachineId('');
     loadRequests();
   };
 
@@ -109,12 +115,17 @@ export default function UserDashboard() {
 
   const handleTransferRequest = async (values: any) => {
     const m = transferModal;
+    const fromFac = m.currentFacility || m.facility;
     await api.post('/transfers', {
       machineId: m.id,
-      fromFacility: m.currentFacility || m.facility,
+      fromFacility: fromFac,
       fromFloor: m.currentFloor || m.floor,
-      toFacility: values.toFacility,
+      fromSection: m.section,
+      fromLine: m.line,
+      toFacility: values.basis === 'internal' ? fromFac : values.toFacility,
       toFloor: values.toFloor,
+      toSection: values.toSection,
+      toLine: values.toLine,
       basis: values.basis,
       reason: values.reason,
       expectedReturnDate: values.expectedReturnDate ? values.expectedReturnDate.format('YYYY-MM-DD') : null,
@@ -151,11 +162,6 @@ export default function UserDashboard() {
       sorter: (a: any, b: any) => (a.machineId || '').localeCompare(b.machineId || ''),
       defaultSortOrder: 'ascend', ellipsis: true,
       render: (v: string) => <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12 }}>{v}</span>,
-    },
-    {
-      title: 'Machine No', dataIndex: 'machineId', key: 'machineId',
-      sorter: (a: any, b: any) => a.machineId.localeCompare(b.machineId), ellipsis: true,
-      render: (v: string) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span>,
     },
     {
       title: 'Sec', dataIndex: 'section', key: 'section', width: 55,
@@ -199,11 +205,16 @@ export default function UserDashboard() {
       },
     },
     {
-      title: '', key: 'action', width: 36, align: 'center' as const,
+      title: '', key: 'action', width: 70, align: 'center' as const,
       render: (_: any, record: any) => (
-        <Tooltip title="Transfer">
-          <Button size="small" type="text" icon={<SwapOutlined />} onClick={() => { setTransferModal(record); transferForm.resetFields(); setBasisValue(null); }} style={{ padding: '0 4px' }} />
-        </Tooltip>
+        <Space size={2}>
+          <Tooltip title="View Details">
+            <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setMachineDetailModal(record)} style={{ padding: '0 4px' }} />
+          </Tooltip>
+          <Tooltip title="Transfer">
+            <Button size="small" type="text" icon={<SwapOutlined />} onClick={() => { setTransferModal(record); transferForm.resetFields(); setBasisValue(null); }} style={{ padding: '0 4px' }} />
+          </Tooltip>
+        </Space>
       ),
     },
   ];
@@ -232,15 +243,15 @@ export default function UserDashboard() {
   ];
 
   const transferColumns: ColumnsType<any> = [
-    { title: 'Machine No', dataIndex: ['machine', 'machineId'], key: 'asset', ellipsis: true, render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> : <span style={{ color: '#d9d9d9' }}>—</span> },
-    { title: 'From', key: 'from', width: 80, render: (_: any, r: any) => <span style={{ fontSize: 12 }}>{r.fromFacility}/{r.fromFloor}</span> },
-    { title: 'To', key: 'to', width: 80, render: (_: any, r: any) => <span style={{ fontSize: 12 }}>{r.toFacility}/{r.toFloor}</span> },
-    { title: 'Basis', dataIndex: 'basis', key: 'basis', width: 75, render: (v: string) => <Tag color={v === 'permanent' ? 'purple' : 'cyan'} style={{ margin: 0, fontSize: 11 }}>{v?.toUpperCase()}</Tag> },
+    { title: 'Machine No', dataIndex: ['machine', 'machineId'], key: 'asset', width: 140, ellipsis: true, render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> : <span style={{ color: '#d9d9d9' }}>—</span> },
+    { title: 'From', key: 'from', width: 90, render: (_: any, r: any) => <span style={{ fontSize: 12 }}>{r.fromFacility}/{r.fromFloor}</span> },
+    { title: 'To', key: 'to', width: 90, render: (_: any, r: any) => <span style={{ fontSize: 12 }}>{r.toFacility}/{r.toFloor}</span> },
+    { title: 'Type', dataIndex: 'basis', key: 'basis', width: 90, render: (v: string) => <Tag color={v === 'permanent' ? 'purple' : v === 'internal' ? 'gold' : 'cyan'} style={{ margin: 0, fontSize: 11 }}>{v?.toUpperCase()}</Tag> },
     { title: 'Reason', dataIndex: 'reason', key: 'reason', ellipsis: true },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 110, render: (s: string) => <Tag color={transferStatusColor[s]} style={{ margin: 0, fontSize: 11 }}>{transferStatusLabel[s]}</Tag> },
-    { title: 'Date', dataIndex: 'requestedAt', key: 'time', width: 85, render: (v: string) => <span style={{ fontSize: 11, color: '#8c8c8c' }}>{dayjs(v).format('DD MMM YY')}</span> },
+    { title: 'Date', dataIndex: 'requestedAt', key: 'time', width: 90, render: (v: string) => <span style={{ fontSize: 11, color: '#8c8c8c' }}>{dayjs(v).format('DD MMM YY')}</span> },
     {
-      title: '', key: 'action', width: 70,
+      title: '', key: 'action', width: 90, fixed: 'right' as const,
       render: (_: any, r: any) => r.status === 'dispatched' && r.toFacility === facility
         ? <Button type="primary" size="small" icon={<InboxOutlined />} onClick={() => handleReceive(r.id)} style={{ fontSize: 11 }}>Receive</Button>
         : null,
@@ -374,28 +385,37 @@ export default function UserDashboard() {
         />
       </Card>
 
-      <Modal title="Add New Machine" open={addModal} onCancel={() => setAddModal(false)} onOk={() => form.submit()} okText="Submit for Approval" width={520}>
-        <Form form={form} onFinish={handleAddMachine} layout="vertical" initialValues={{ facility, section: 'SE' }} size="small">
+      <Modal title="Add New Machine" open={addModal} onCancel={() => { setAddModal(false); setNextMachineId(''); }} onOk={() => form.submit()} okText="Submit for Approval" width={520}>
+        <Form form={form} onFinish={handleAddMachine} layout="vertical" initialValues={{ facility, section: 'SE' }} size="small"
+          onValuesChange={(changed) => {
+            if (changed.machineType) {
+              const vals = form.getFieldsValue(['machineType']);
+              fetchNextId(facility, vals.machineType);
+            }
+          }}
+        >
+          {nextMachineId && (
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, fontSize: 13 }}>
+              Machine ID: <strong style={{ fontFamily: 'monospace', fontSize: 14 }}>{nextMachineId}</strong>
+            </div>
+          )}
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="machineId" label="Machine No" rules={[{ required: true }]}><Input placeholder="AGL-SNLS-00019" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="section" label="Section" rules={[{ required: true }]}><Select options={sectionOptions} /></Form.Item></Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={12}><Form.Item name="machineType" label="Machine Type" rules={[{ required: true }]}><Select options={machineTypeOptions} showSearch optionFilterProp="label" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="brand" label="Brand"><Input placeholder="JUKI" /></Form.Item></Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={12}><Form.Item name="modelNo" label="Model"><Input placeholder="DDL-8700-7" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="mfgSerialNo" label="Serial No."><Input /></Form.Item></Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={8}><Form.Item name="year" label="Year"><Input placeholder="2006" /></Form.Item></Col>
             <Col span={8}><Form.Item name="facility" label="Factory"><Input disabled /></Form.Item></Col>
-            <Col span={8}><Form.Item name="floor" label="Floor" rules={[{ required: true }]}><Input placeholder="4TH" /></Form.Item></Col>
+            <Col span={8}><Form.Item name="machineType" label="Machine Type" rules={[{ required: true }]}><Select options={machineTypeOptions} showSearch optionFilterProp="label" popupMatchSelectWidth={false} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="section" label="Section" rules={[{ required: true }]}><Select options={sectionOptions} /></Form.Item></Col>
           </Row>
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="line" label="Line"><Input placeholder="SAMPLE" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="remarks" label="Remarks"><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="brand" label="Brand"><Input placeholder="JUKI" autoComplete="nope" /></Form.Item></Col>
+            <Col span={12}><Form.Item name="modelNo" label="Model"><Input placeholder="DDL-8700-7" autoComplete="nope" /></Form.Item></Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={12}><Form.Item name="mfgSerialNo" label="Serial No."><Input autoComplete="nope" /></Form.Item></Col>
+            <Col span={12}><Form.Item name="year" label="Year"><Input placeholder="2006" autoComplete="nope" /></Form.Item></Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={8}><Form.Item name="floor" label="Floor" rules={[{ required: true }]}><Select showSearch allowClear placeholder="Floor" options={suggestions.floors.map((f) => ({ value: f, label: f }))} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="line" label="Line"><Select showSearch allowClear placeholder="Line" options={suggestions.lines.map((l) => ({ value: l, label: l }))} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="remarks" label="Remarks"><Input autoComplete="nope" /></Form.Item></Col>
           </Row>
         </Form>
       </Modal>
@@ -412,17 +432,32 @@ export default function UserDashboard() {
               </Row>
             </div>
             <Form form={transferForm} onFinish={handleTransferRequest} layout="vertical" size="small">
-              <Row gutter={12}>
-                <Col span={12}><Form.Item name="toFacility" label="To Factory" rules={[{ required: true }]}><Select options={[{ value: 'AGL' }, { value: 'AJL' }, { value: 'ABM' }].filter((o) => o.value !== facility)} placeholder="Select" /></Form.Item></Col>
-                <Col span={12}><Form.Item name="toFloor" label="To Floor" rules={[{ required: true }]}><Input placeholder="4TH" /></Form.Item></Col>
-              </Row>
-              <Form.Item name="basis" label="Basis" rules={[{ required: true }]}>
+              <Form.Item name="basis" label="Transfer Type" rules={[{ required: true }]}>
                 <Select
-                  options={[{ value: 'loan', label: 'Loan (Temporary)' }, { value: 'permanent', label: 'Permanent' }]}
+                  options={[{ value: 'loan', label: 'Loan (Temporary)' }, { value: 'permanent', label: 'Permanent Transfer' }, { value: 'internal', label: 'Internal (Floor Change)' }]}
                   placeholder="Select"
-                  onChange={(v) => setBasisValue(v)}
+                  onChange={(v) => { setBasisValue(v); if (v === 'internal') transferForm.setFieldsValue({ toFacility: facility }); }}
                 />
               </Form.Item>
+              {basisValue !== 'internal' && (
+                <Row gutter={12}>
+                  <Col span={12}><Form.Item name="toFacility" label="To Factory" rules={[{ required: true }]}><Select options={[{ value: 'AGL' }, { value: 'AJL' }, { value: 'ABM' }, { value: 'ASL' }].filter((o) => o.value !== facility)} placeholder="Select" /></Form.Item></Col>
+                  <Col span={12}><Form.Item name="toFloor" label="To Floor" rules={[{ required: true }]}><Select showSearch allowClear placeholder="Floor" options={suggestions.floors.map((f) => ({ value: f, label: f }))} /></Form.Item></Col>
+                </Row>
+              )}
+              {basisValue === 'internal' && (
+                <Row gutter={12}>
+                  <Col span={8}><Form.Item name="toFloor" label="To Floor" rules={[{ required: true }]}><Select showSearch allowClear placeholder="Floor" options={suggestions.floors.map((f) => ({ value: f, label: f }))} /></Form.Item></Col>
+                  <Col span={8}><Form.Item name="toSection" label="To Section"><Select showSearch allowClear placeholder="Section" options={suggestions.sections.map((s) => ({ value: s, label: s }))} /></Form.Item></Col>
+                  <Col span={8}><Form.Item name="toLine" label="To Line"><Select showSearch allowClear placeholder="Line" options={suggestions.lines.map((l) => ({ value: l, label: l }))} /></Form.Item></Col>
+                </Row>
+              )}
+              {basisValue !== 'internal' && (
+                <Row gutter={12}>
+                  <Col span={12}><Form.Item name="toSection" label="To Section"><Select showSearch allowClear placeholder="Section" options={suggestions.sections.map((s) => ({ value: s, label: s }))} /></Form.Item></Col>
+                  <Col span={12}><Form.Item name="toLine" label="To Line"><Select showSearch allowClear placeholder="Line" options={suggestions.lines.map((l) => ({ value: l, label: l }))} /></Form.Item></Col>
+                </Row>
+              )}
               {basisValue === 'loan' && (
                 <Form.Item name="expectedReturnDate" label="Expected Return Date" rules={[{ required: true, message: 'Return date is required for loans' }]}>
                   <DatePicker style={{ width: '100%' }} disabledDate={(d) => d.isBefore(dayjs(), 'day')} placeholder="Select return date" />
@@ -460,6 +495,25 @@ export default function UserDashboard() {
               </div>
             )}
           </div>
+        )}
+      </Modal>
+
+      <Modal title="Machine Details" open={!!machineDetailModal} onCancel={() => setMachineDetailModal(null)} footer={null} width={500}>
+        {machineDetailModal && (
+          <Row gutter={[12, 10]} style={{ fontSize: 13 }}>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Machine No</Typography.Text><br /><span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{machineDetailModal.machineId}</span></Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Status</Typography.Text><br /><Badge status={(statusConfig[machineDetailModal.status]?.color || 'default') as any} text={statusConfig[machineDetailModal.status]?.label || machineDetailModal.status} /></Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Section</Typography.Text><br />{machineDetailModal.section || 'SE'}</Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Type</Typography.Text><br />{getMachineTypeDisplay(machineDetailModal.machineType).fullName}</Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Brand</Typography.Text><br />{machineDetailModal.brand || '—'}</Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Model</Typography.Text><br />{machineDetailModal.modelNo || '—'}</Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Serial No</Typography.Text><br />{machineDetailModal.mfgSerialNo || '—'}</Col>
+            <Col span={12}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Year</Typography.Text><br />{machineDetailModal.year || '—'}</Col>
+            <Col span={8}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Factory</Typography.Text><br /><strong>{machineDetailModal.currentFacility || machineDetailModal.facility}</strong></Col>
+            <Col span={8}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Floor</Typography.Text><br />{machineDetailModal.currentFloor || machineDetailModal.floor}</Col>
+            <Col span={8}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Line</Typography.Text><br />{machineDetailModal.line || '—'}</Col>
+            {machineDetailModal.remarks && <Col span={24}><Typography.Text type="secondary" style={{ fontSize: 11 }}>Remarks</Typography.Text><br />{machineDetailModal.remarks}</Col>}
+          </Row>
         )}
       </Modal>
     </div>

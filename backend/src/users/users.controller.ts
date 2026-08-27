@@ -24,19 +24,19 @@ export class UsersController {
   }
 
   @Post()
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SYSTEM_ADMIN)
   create(@Body() body: any) {
     return this.usersService.create(body);
   }
 
   @Put(':id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SYSTEM_ADMIN)
   update(@Param('id') id: number, @Body() body: any) {
     return this.usersService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SYSTEM_ADMIN)
   delete(@Param('id') id: number) {
     return this.usersService.delete(id);
   }

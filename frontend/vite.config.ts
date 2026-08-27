@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react(), ...(process.env.NO_SSL ? [] : [basicSsl()])],
   server: {
     host: '0.0.0.0',
     proxy: {

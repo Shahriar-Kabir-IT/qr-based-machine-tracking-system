@@ -29,31 +29,40 @@ const roleLabels: Record<string, string> = {
   line_chief: 'Line Chief',
   mechanic: 'Mechanic',
   system_admin: 'System Admin',
+  security: 'Security',
 };
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isSuperAdmin, isUser, isMechanic, isLineChief, isSystemAdmin } = useAuth();
+  const { user, logout, isUser, isMechanic, isLineChief, isSystemAdmin, isSecurity } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   let menuItems;
   if (isSystemAdmin) {
     menuItems = [
       { key: '/system', icon: <SettingOutlined />, label: 'System Admin' },
+      { key: '/users', icon: <TeamOutlined />, label: 'User Management' },
+    ];
+  } else if (isSecurity) {
+    menuItems = [
+      { key: '/security', icon: <DatabaseOutlined />, label: 'Security Dashboard' },
     ];
   } else if (isMechanic) {
     menuItems = [
       { key: '/mechanic', icon: <AlertOutlined />, label: 'Service Requests' },
+      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
     ];
   } else if (isLineChief) {
     menuItems = [
       { key: '/line-chief', icon: <DatabaseOutlined />, label: 'My Machines' },
       { key: '/line-chief/history', icon: <ThunderboltOutlined />, label: 'Service History' },
+      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
     ];
   } else if (isUser) {
     menuItems = [
       { key: '/user-dashboard', icon: <AppstoreOutlined />, label: `${user?.facility || ''} Dashboard` },
+      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
     ];
   } else {
     menuItems = [
@@ -65,9 +74,6 @@ export default function AppLayout() {
       { key: '/spare-parts', icon: <BuildOutlined />, label: 'Spare Parts' },
       { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
       { key: '/mechanic-kpi', icon: <DashboardOutlined />, label: 'Mechanic KPI' },
-      ...(isSuperAdmin
-        ? [{ key: '/users', icon: <TeamOutlined />, label: 'User Management' }]
-        : []),
     ];
   }
 

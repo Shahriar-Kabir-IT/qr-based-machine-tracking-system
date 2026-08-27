@@ -17,6 +17,7 @@ import LineChiefDashboard from './pages/LineChiefDashboard';
 import LineChiefHistory from './pages/LineChiefHistory';
 import UserDashboard from './pages/UserDashboard';
 import SystemAdmin from './pages/SystemAdmin';
+import SecurityDashboard from './pages/SecurityDashboard';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -25,9 +26,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { token, isMechanic, isLineChief, isUser, isSystemAdmin } = useAuth();
+  const { token, isMechanic, isLineChief, isUser, isSystemAdmin, isSecurity } = useAuth();
 
-  const homeRedirect = isSystemAdmin ? '/system' : isMechanic ? '/mechanic' : isLineChief ? '/line-chief' : isUser ? '/user-dashboard' : '/';
+  const homeRedirect = isSystemAdmin ? '/system' : isSecurity ? '/security' : isMechanic ? '/mechanic' : isLineChief ? '/line-chief' : isUser ? '/user-dashboard' : '/';
 
   return (
     <Routes>
@@ -39,7 +40,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={isSystemAdmin ? <Navigate to="/system" replace /> : isMechanic ? <Navigate to="/mechanic" replace /> : isLineChief ? <Navigate to="/line-chief" replace /> : isUser ? <Navigate to="/user-dashboard" replace /> : <Dashboard />} />
+        <Route path="/" element={isSystemAdmin ? <Navigate to="/system" replace /> : isSecurity ? <Navigate to="/security" replace /> : isMechanic ? <Navigate to="/mechanic" replace /> : isLineChief ? <Navigate to="/line-chief" replace /> : isUser ? <Navigate to="/user-dashboard" replace /> : <Dashboard />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/transfers" element={<Transfers />} />
         <Route path="/downtime" element={<Downtime />} />
@@ -53,6 +54,7 @@ function AppRoutes() {
         <Route path="/line-chief/history" element={<LineChiefHistory />} />
         <Route path="/user-dashboard" element={<UserDashboard />} />
         <Route path="/system" element={<SystemAdmin />} />
+        <Route path="/security" element={<SecurityDashboard />} />
       </Route>
     </Routes>
   );

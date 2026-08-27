@@ -101,15 +101,20 @@ export class TransfersService {
     t.status = TransferStatus.RECEIVED;
     t.receivedBy = userId;
     t.receivedAt = new Date();
-    if (t.basis === TransferBasis.LOAN) {
+
+    if (t.basis === TransferBasis.INTERNAL) {
+      await this.machinesService.internalTransfer(t.machineId, t.toFloor, t.toLine);
+    } else if (t.basis === TransferBasis.PERMANENT) {
+      if (t.fromFacility !== t.toFacility) {
+        await this.machinesService.reassignMachineId(t.machineId, t.toFacility);
+      }
+      await this.machinesService.permanentTransfer(t.machineId, t.toFacility, t.toFloor);
+    } else if (t.basis === TransferBasis.LOAN) {
       await this.machinesService.updateStatusAndLocation(
         t.machineId, MachineStatus.ON_LOAN, t.toFacility, t.toFloor,
       );
-    } else {
-      await this.machinesService.updateStatusAndLocation(
-        t.machineId, MachineStatus.ACTIVE, t.toFacility, t.toFloor,
-      );
     }
+
     return this.transfersRepo.save(t);
   }
 

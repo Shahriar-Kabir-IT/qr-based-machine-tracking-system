@@ -10,6 +10,7 @@ const roleOptions = [
   { value: 'user', label: 'Normal User' },
   { value: 'line_chief', label: 'Line Chief' },
   { value: 'mechanic', label: 'Mechanic' },
+  { value: 'security', label: 'Security' },
 ];
 
 const roleColor: Record<string, string> = {
@@ -19,6 +20,7 @@ const roleColor: Record<string, string> = {
   line_chief: 'cyan',
   mechanic: 'orange',
   system_admin: 'purple',
+  security: 'volcano',
 };
 
 export default function UserManagement() {
@@ -100,7 +102,7 @@ export default function UserManagement() {
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Create User</Button>
       </div>
 
-      <Table dataSource={users} columns={columns} rowKey="id" loading={loading} size="small" />
+      <Table dataSource={users} columns={columns} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 50 }} />
 
       <Modal
         title={editingUser ? 'Edit User' : 'Create User'}

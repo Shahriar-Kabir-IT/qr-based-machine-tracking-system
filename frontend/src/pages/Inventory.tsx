@@ -85,6 +85,8 @@ export default function Inventory() {
   const [detailModal, setDetailModal] = useState<any>(null);
   const [rejectModal, setRejectModal] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [nextMachineId, setNextMachineId] = useState('');
+  const [suggestions, setSuggestions] = useState<{ floors: string[]; sections: string[]; lines: string[] }>({ floors: [], sections: [], lines: [] });
   const [form] = Form.useForm();
   const [rejectForm] = Form.useForm();
   const { user, isSuperAdmin, isAdmin } = useAuth();
@@ -103,6 +105,18 @@ export default function Inventory() {
   };
 
   useEffect(() => { load(); }, [search, selectedFactory]);
+
+  useEffect(() => {
+    api.get('/rental/suggestions').then((res) => {
+      setSuggestions({ floors: res.data.floors || [], sections: res.data.sections || [], lines: res.data.lines || [] });
+    });
+  }, []);
+
+  const fetchNextId = async (facility?: string, machineType?: string) => {
+    if (!facility || !machineType) { setNextMachineId(''); return; }
+    const res = await api.get('/machines/next-id', { params: { facility, type: machineType } });
+    setNextMachineId(res.data.machineId || '');
+  };
 
   const handleSubmit = async (values: any) => {
     await api.post('/machines', values);
@@ -289,29 +303,46 @@ export default function Inventory() {
         />
       </div>
 
-      <Modal title="Register New Machine" open={modalOpen} onCancel={() => setModalOpen(false)} onOk={() => form.submit()} okText="Submit for Approval" width={560}>
-        <Form form={form} onFinish={handleSubmit} layout="vertical" initialValues={{ section: 'SE' }} size="small">
+      <Modal title="Register New Machine" open={modalOpen} onCancel={() => { setModalOpen(false); setNextMachineId(''); }} onOk={() => form.submit()} okText="Submit for Approval" width={560}>
+        <Form form={form} onFinish={handleSubmit} layout="vertical" initialValues={{ section: 'SE' }} size="small"
+          onValuesChange={(changed) => {
+            if (changed.facility || changed.machineType) {
+              const vals = form.getFieldsValue(['facility', 'machineType']);
+              fetchNextId(vals.facility, vals.machineType);
+            }
+          }}
+        >
+          {nextMachineId && (
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, fontSize: 13 }}>
+              Machine ID: <strong style={{ fontFamily: 'monospace', fontSize: 14 }}>{nextMachineId}</strong>
+            </div>
+          )}
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="machineId" label="Machine No" rules={[{ required: true }]}><Input placeholder="e.g. AGL-SNLS-00019" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="section" label="Section" rules={[{ required: true }]}><Select options={sectionOptions} /></Form.Item></Col>
+            <Col span={8}>
+              <Form.Item name="facility" label="Factory" rules={[{ required: true }]}>
+                <Select options={[{ value: 'AGL' }, { value: 'AJL' }, { value: 'ABM' }, { value: 'ASL' }]} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="machineType" label="Machine Type" rules={[{ required: true }]}>
+                <Select options={machineTypeOptions} showSearch optionFilterProp="label" popupMatchSelectWidth={false} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}><Form.Item name="section" label="Section" rules={[{ required: true }]}><Select options={sectionOptions} /></Form.Item></Col>
           </Row>
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="machineType" label="Machine Type" rules={[{ required: true }]}><Select options={machineTypeOptions} showSearch optionFilterProp="label" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="brand" label="Brand"><Input placeholder="e.g. JUKI" /></Form.Item></Col>
+            <Col span={12}><Form.Item name="brand" label="Brand"><Input placeholder="e.g. JUKI" autoComplete="nope" /></Form.Item></Col>
+            <Col span={12}><Form.Item name="modelNo" label="Model No."><Input placeholder="e.g. DDL-8700-7" autoComplete="nope" /></Form.Item></Col>
           </Row>
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="modelNo" label="Model No."><Input placeholder="e.g. DDL-8700-7" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="mfgSerialNo" label="Serial No."><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="mfgSerialNo" label="Serial No."><Input autoComplete="nope" /></Form.Item></Col>
+            <Col span={12}><Form.Item name="year" label="Year"><Input placeholder="2006" autoComplete="nope" /></Form.Item></Col>
           </Row>
           <Row gutter={12}>
-            <Col span={8}><Form.Item name="year" label="Year"><Input placeholder="2006" /></Form.Item></Col>
-            <Col span={8}><Form.Item name="facility" label="Factory" rules={[{ required: true }]}><Select options={[{ value: 'AGL' }, { value: 'AJL' }, { value: 'ABM' }, { value: 'ASL' }]} /></Form.Item></Col>
-            <Col span={8}><Form.Item name="floor" label="Floor" rules={[{ required: true }]}><Input placeholder="4TH" /></Form.Item></Col>
+            <Col span={12}><Form.Item name="floor" label="Floor" rules={[{ required: true }]}><Select showSearch allowClear placeholder="Select floor" options={suggestions.floors.map((f) => ({ value: f, label: f }))} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="line" label="Line"><Select showSearch allowClear placeholder="Select line" options={suggestions.lines.map((l) => ({ value: l, label: l }))} /></Form.Item></Col>
           </Row>
-          <Row gutter={12}>
-            <Col span={12}><Form.Item name="line" label="Line"><Input placeholder="SAMPLE, LINE-1" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="remarks" label="Remarks"><Input /></Form.Item></Col>
-          </Row>
+          <Form.Item name="remarks" label="Remarks"><Input autoComplete="nope" /></Form.Item>
         </Form>
       </Modal>
 

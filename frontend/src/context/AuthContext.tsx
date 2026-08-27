@@ -5,7 +5,7 @@ interface User {
   id: number;
   username: string;
   name: string;
-  role: 'super_admin' | 'admin' | 'user' | 'line_chief' | 'mechanic' | 'system_admin';
+  role: 'super_admin' | 'admin' | 'user' | 'line_chief' | 'mechanic' | 'system_admin' | 'security';
   facility?: string;
   floor?: string;
 }
@@ -21,6 +21,7 @@ interface AuthContextType {
   isLineChief: boolean;
   isMechanic: boolean;
   isSystemAdmin: boolean;
+  isSecurity: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -53,9 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isLineChief = user?.role === 'line_chief';
   const isMechanic = user?.role === 'mechanic';
   const isSystemAdmin = user?.role === 'system_admin';
+  const isSecurity = user?.role === 'security';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isSuperAdmin, isAdmin, isUser, isLineChief, isMechanic, isSystemAdmin }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isSuperAdmin, isAdmin, isUser, isLineChief, isMechanic, isSystemAdmin, isSecurity }}>
       {children}
     </AuthContext.Provider>
   );

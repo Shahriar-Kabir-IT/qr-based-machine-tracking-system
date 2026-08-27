@@ -31,6 +31,13 @@ export class MachinesController {
     return this.machinesService.countByType();
   }
 
+  @Get('next-id')
+  async nextId(@Query('facility') facility: string, @Query('type') type: string) {
+    if (!facility || !type) return { machineId: '' };
+    const machineId = await this.machinesService.generateMachineId(facility, type);
+    return { machineId };
+  }
+
   @Get('by-asset/:assetId')
   findByAssetId(@Param('assetId') assetId: string) {
     return this.machinesService.findByAssetId(assetId);

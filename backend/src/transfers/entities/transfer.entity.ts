@@ -4,6 +4,7 @@ import { Machine } from '../../machines/entities/machine.entity';
 export enum TransferBasis {
   LOAN = 'loan',
   PERMANENT = 'permanent',
+  INTERNAL = 'internal',
 }
 
 export enum TransferStatus {
@@ -35,11 +36,23 @@ export class Transfer {
   @Column()
   fromFloor: string;
 
+  @Column({ nullable: true })
+  fromSection: string;
+
+  @Column({ nullable: true })
+  fromLine: string;
+
   @Column()
   toFacility: string;
 
   @Column()
   toFloor: string;
+
+  @Column({ nullable: true })
+  toSection: string;
+
+  @Column({ nullable: true })
+  toLine: string;
 
   @Column({ nullable: true })
   direction: string;

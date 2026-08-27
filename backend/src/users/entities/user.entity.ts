@@ -7,6 +7,7 @@ export enum UserRole {
   LINE_CHIEF = 'line_chief',
   MECHANIC = 'mechanic',
   SYSTEM_ADMIN = 'system_admin',
+  SECURITY = 'security',
 }
 
 @Entity('users')
