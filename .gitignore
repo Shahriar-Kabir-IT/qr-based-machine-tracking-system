@@ -19,6 +19,7 @@ pnpm-debug.log*
 .DS_Store
 *.suo
 *.sw?
+*.code-workspace
 
 # OS
 Thumbs.db
