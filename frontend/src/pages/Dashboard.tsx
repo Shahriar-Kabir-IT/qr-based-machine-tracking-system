@@ -37,7 +37,16 @@ export default function Dashboard() {
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
   const { stats, machinesByFloor: rawFloorData, topMachineTypes: rawTopTypes, recentBreakdowns, overdueLoans, returnRequests } = data;
-  const topMachineTypes = (rawTopTypes as any[]).map((t: any) => ({ ...t, machineType: getFullName(t.machineType) }));
+  const topMachineTypes = (() => {
+    const merged: Record<string, number> = {};
+    for (const t of rawTopTypes as any[]) {
+      const name = getFullName(t.machineType);
+      merged[name] = (merged[name] || 0) + Number(t.count);
+    }
+    return Object.entries(merged)
+      .map(([machineType, count]) => ({ machineType, count }))
+      .sort((a, b) => b.count - a.count);
+  })();
 
   const facilities = [...new Set((rawFloorData as any[]).map((d: any) => d.facility))].sort();
   const floorChartData = (() => {
