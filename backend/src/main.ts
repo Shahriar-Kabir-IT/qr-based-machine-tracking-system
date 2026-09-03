@@ -17,6 +17,7 @@ class SpaFilter implements ExceptionFilter {
     if (req.url.startsWith('/api/')) {
       res.status(404).json({ statusCode: 404, message: 'Not Found' });
     } else {
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(indexFile);
     }
   }
@@ -35,7 +36,14 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, httpsOptions ? { httpsOptions } : {});
   app.enableCors({ origin: true, credentials: true });
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    maxAge: '1y',
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.html') || filePath.endsWith('/')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  }));
   app.useGlobalFilters(new SpaFilter());
   await app.listen(process.env.PORT ?? 5173, '0.0.0.0');
 }
