@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ExceptionFilter, Catch, NotFoundException, ArgumentsHost, HttpException } from '@nestjs/common';
+import compression = require('compression');
 import * as express from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -36,6 +37,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, httpsOptions ? { httpsOptions } : {});
   app.enableCors({ origin: true, credentials: true });
+  app.use(compression());
   app.use(express.static(distPath, {
     maxAge: '1y',
     setHeaders(res, filePath) {

@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Space, Typography, message, DatePicker, Row, Col } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
+
+const facilityNames: Record<string, string> = {
+  AGL: 'Ananta Garments Ltd.',
+  AJL: 'Ananta Jeanswear Ltd.',
+  ABM: 'ABM Fashion Ltd.',
+  ASL: 'Ananta Sportswear Ltd.',
+};
 
 const statusLabels: Record<string, string> = {
   requested: 'Requested',
@@ -23,6 +30,7 @@ export default function Transfers() {
   const [machines, setMachines] = useState<any[]>([]);
   const [detailModal, setDetailModal] = useState<any>(null);
   const [rejectModal, setRejectModal] = useState<number | null>(null);
+  const [chalanData, setChalanData] = useState<any>(null);
   const [facilityFilter, setFacilityFilter] = useState<string | undefined>(undefined);
   const [basisValue, setBasisValue] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<{ floors: string[]; sections: string[]; lines: string[] }>({ floors: [], sections: [], lines: [] });
@@ -78,6 +86,28 @@ export default function Transfers() {
     load();
   };
 
+  const openChalan = async (id: number) => {
+    const res = await api.get(`/transfers/${id}/chalan`);
+    if (res.data.error) { message.error(res.data.error); return; }
+    setChalanData(res.data);
+  };
+
+  const printChalan = () => {
+    const el = document.getElementById('chalan-print');
+    if (!el) return;
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Chalan ${chalanData.chalanNo}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        @media print { body { padding: 10px; } .no-print { display: none; } }
+      </style></head><body>${el.innerHTML}
+      <script>window.onload = function() { window.print(); }</script>
+      </body></html>`);
+    win.document.close();
+  };
+
   const statusColor: Record<string, string> = {
     requested: 'blue', first_approved: 'cyan', second_approved: 'geekblue',
     dispatched: 'orange', received: 'green', rejected: 'red',
@@ -114,6 +144,9 @@ export default function Transfers() {
           )}
           {record.status === 'first_approved' && (isSuperAdmin || isAdmin) && (
             <Button size="small" type="primary" onClick={() => handleAction(record.id, 'second-approve')}>2nd Approve</Button>
+          )}
+          {record.chalanNo && (
+            <Button size="small" icon={<PrinterOutlined />} onClick={() => openChalan(record.id)}>Chalan</Button>
           )}
           {record.status === 'second_approved' && (isSuperAdmin || isAdmin) && (
             <Button size="small" type="primary" onClick={() => handleAction(record.id, 'dispatch')}>Dispatch</Button>
@@ -225,6 +258,106 @@ export default function Transfers() {
         <Form form={rejectForm} onFinish={handleReject} layout="vertical">
           <Form.Item name="reason" label="Rejection Reason" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item>
         </Form>
+      </Modal>
+
+      <Modal title={`Chalan — ${chalanData?.chalanNo || ''}`} open={!!chalanData} onCancel={() => setChalanData(null)} width={700}
+        footer={<Button type="primary" icon={<PrinterOutlined />} onClick={printChalan}>Print Chalan</Button>}>
+        {chalanData && (
+          <div id="chalan-print">
+            <div style={{ border: '2px solid #000', padding: 24 }}>
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{facilityNames[chalanData.from.facility] || chalanData.from.facility}</h2>
+                <h3 style={{ margin: '4px 0', fontSize: 16 }}>Machine Transfer Chalan</h3>
+                <div style={{ fontSize: 12, color: '#666' }}>Delivery Note / Gate Pass</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 13 }}>
+                <div><strong>Chalan No:</strong> {chalanData.chalanNo}</div>
+                <div><strong>Date:</strong> {dayjs(chalanData.date).format('DD MMM YYYY')}</div>
+                <div><strong>Type:</strong> {chalanData.basis?.toUpperCase()}</div>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16, fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f0f0f0' }}>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }} colSpan={2}>Machine Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Machine ID', chalanData.machine?.machineId],
+                    ['Machine Type', chalanData.machine?.machineType],
+                    ['Brand', chalanData.machine?.brand || 'N/A'],
+                    ['Model No', chalanData.machine?.modelNo || 'N/A'],
+                    ['Serial No', chalanData.machine?.mfgSerialNo || 'N/A'],
+                  ].map(([label, val]) => (
+                    <tr key={label as string}>
+                      <td style={{ border: '1px solid #000', padding: '4px 10px', width: 160, fontWeight: 600 }}>{label}</td>
+                      <td style={{ border: '1px solid #000', padding: '4px 10px' }}>{val}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16, fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f0f0f0' }}>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>Transfer From</th>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>Transfer To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>
+                      <div><strong>Factory:</strong> {chalanData.from.facility}</div>
+                      <div><strong>Floor:</strong> {chalanData.from.floor}</div>
+                      {chalanData.from.section && <div><strong>Section:</strong> {chalanData.from.section}</div>}
+                      {chalanData.from.line && <div><strong>Line:</strong> {chalanData.from.line}</div>}
+                    </td>
+                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>
+                      <div><strong>Factory:</strong> {chalanData.to.facility}</div>
+                      <div><strong>Floor:</strong> {chalanData.to.floor}</div>
+                      {chalanData.to.section && <div><strong>Section:</strong> {chalanData.to.section}</div>}
+                      {chalanData.to.line && <div><strong>Line:</strong> {chalanData.to.line}</div>}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ fontSize: 13, marginBottom: 16 }}>
+                <strong>Reason:</strong> {chalanData.reason}
+              </div>
+              {chalanData.basis === 'loan' && chalanData.expectedReturnDate && (
+                <div style={{ fontSize: 13, marginBottom: 16, padding: 8, background: '#fffbe6', border: '1px solid #ffe58f' }}>
+                  <strong>Expected Return Date:</strong> {dayjs(chalanData.expectedReturnDate).format('DD MMM YYYY')}
+                </div>
+              )}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24, fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f0f0f0' }}>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>Requested By</th>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>1st Approved By</th>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>2nd Approved By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.requestedBy}</td>
+                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.firstApprovedBy}</td>
+                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.secondApprovedBy}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 40, fontSize: 12 }}>
+                <div style={{ textAlign: 'center', width: '30%' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>Sender Signature</div>
+                </div>
+                <div style={{ textAlign: 'center', width: '30%' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>Security Gate</div>
+                </div>
+                <div style={{ textAlign: 'center', width: '30%' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>Receiver Signature</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal title="Transfer Details" open={!!detailModal} onCancel={() => setDetailModal(null)} footer={null} width={520}>

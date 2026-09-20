@@ -13,6 +13,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { UsersService } from './users/users.service';
 import { MachinesService } from './machines/machines.service';
 import { SystemController } from './system.controller';
+import { CacheService } from './cache.service';
 
 @Module({
   imports: [
@@ -42,6 +43,8 @@ import { SystemController } from './system.controller';
     DashboardModule,
   ],
   controllers: [SystemController],
+  providers: [CacheService],
+  exports: [CacheService],
 })
 export class AppModule implements OnModuleInit {
   constructor(

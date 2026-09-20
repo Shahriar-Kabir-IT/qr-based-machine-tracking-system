@@ -75,6 +75,9 @@ export class Transfer {
   @Column({ nullable: true })
   secondApprovedBy: number;
 
+  @Column({ nullable: true, unique: true })
+  chalanNo: string;
+
   @Column({ nullable: true })
   dispatchedBy: number;
 

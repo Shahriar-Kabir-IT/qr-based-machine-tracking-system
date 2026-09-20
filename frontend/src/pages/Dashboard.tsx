@@ -10,7 +10,7 @@ import {
   CheckOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import api from '../api/client';
 import dayjs from 'dayjs';
 import { getFullName } from '../utils/machineTypes';
@@ -36,7 +36,7 @@ export default function Dashboard() {
 
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
-  const { stats, machinesByFloor: rawFloorData, topMachineTypes: rawTopTypes, recentBreakdowns, overdueLoans, returnRequests } = data;
+  const { stats, machinesByFloor: rawFloorData, topMachineTypes: rawTopTypes, recentBreakdowns, overdueLoans, returnRequests, machinesByFactory: rawFactoryData } = data;
   const topMachineTypes = (() => {
     const merged: Record<string, number> = {};
     for (const t of rawTopTypes as any[]) {
@@ -48,27 +48,52 @@ export default function Dashboard() {
       .sort((a, b) => b.count - a.count);
   })();
 
-  const facilities = [...new Set((rawFloorData as any[]).map((d: any) => d.facility))].sort();
-  const floorChartData = (() => {
-    const floors = [...new Set((rawFloorData as any[]).map((d: any) => d.floor))];
-    const floorOrder = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH', '7TH', '8TH'];
-    floors.sort((a, b) => {
-      const ai = floorOrder.indexOf(a);
-      const bi = floorOrder.indexOf(b);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
-      return a.localeCompare(b);
-    });
-    return floors.map(floor => {
-      const row: any = { floor };
-      for (const f of facilities) {
-        const match = (rawFloorData as any[]).find((d: any) => d.facility === f && d.floor === floor);
-        row[f] = match ? Number(match.count) : 0;
+  const factoryTypeBreakdown: Record<string, { type: string; count: number }[]> = {};
+  const factoryChartData = (() => {
+    const grouped: Record<string, number> = {};
+    for (const d of (rawFactoryData || rawFloorData) as any[]) {
+      const factory = d.facility;
+      grouped[factory] = (grouped[factory] || 0) + Number(d.count);
+      if (d.machineType) {
+        if (!factoryTypeBreakdown[factory]) factoryTypeBreakdown[factory] = [];
+        factoryTypeBreakdown[factory].push({ type: getFullName(d.machineType), count: Number(d.count) });
       }
-      return row;
-    });
+    }
+    for (const factory of Object.keys(factoryTypeBreakdown)) {
+      const merged: Record<string, number> = {};
+      for (const item of factoryTypeBreakdown[factory]) {
+        merged[item.type] = (merged[item.type] || 0) + item.count;
+      }
+      factoryTypeBreakdown[factory] = Object.entries(merged)
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count);
+    }
+    return Object.entries(grouped)
+      .map(([factory, count]) => ({ factory, count }))
+      .sort((a, b) => b.count - a.count);
   })();
+
+  const FactoryTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const factory = payload[0]?.payload?.factory;
+    const total = payload[0]?.value;
+    const types = factoryTypeBreakdown[factory] || [];
+    return (
+      <div style={{ background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, padding: '8px 12px', maxHeight: 300, overflowY: 'auto', minWidth: 220 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6, borderBottom: '1px solid #f0f0f0', paddingBottom: 4 }}>
+          {factory} — {total} machines
+        </div>
+        {types.map((t) => (
+          <div key={t.type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0', gap: 12 }}>
+            <span style={{ color: '#595959' }}>{t.type}</span>
+            <span style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{t.count}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const FACTORY_COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16', '#2f54eb', '#a0d911', '#f5222d', '#1da57a'];
 
   const statCards = [
     { title: 'Total Machines', value: stats.totalMachines, icon: <SettingOutlined />, color: '#1890ff' },
@@ -188,17 +213,18 @@ export default function Dashboard() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={12}>
-          <Card title="Machines by Floor" size="small">
-            <ResponsiveContainer width="100%" height={Math.max(250, floorChartData.length * 30)}>
-              <BarChart data={floorChartData} layout="vertical">
+          <Card title="Machines by Factory" size="small">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={factoryChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis type="category" dataKey="floor" width={100} style={{ fontSize: 11 }} />
-                <RechartsTooltip />
-                <Legend />
-                {facilities.map((f, i) => (
-                  <Bar key={f} dataKey={f} stackId="a" fill={['#1890ff', '#52c41a', '#faad14', '#ff4d4f'][i % 4]} />
-                ))}
+                <XAxis dataKey="factory" style={{ fontSize: 12 }} />
+                <YAxis style={{ fontSize: 12 }} />
+                <RechartsTooltip content={<FactoryTooltip />} />
+                <Bar dataKey="count">
+                  {factoryChartData.map((_, i) => (
+                    <Cell key={i} fill={FACTORY_COLORS[i % FACTORY_COLORS.length]} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </Card>

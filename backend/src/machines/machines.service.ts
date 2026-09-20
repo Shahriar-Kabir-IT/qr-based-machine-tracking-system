@@ -2,16 +2,28 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Machine, MachineStatus } from './entities/machine.entity';
+import { CacheService } from '../cache.service';
 
 @Injectable()
 export class MachinesService {
   constructor(
     @InjectRepository(Machine)
     private machinesRepo: Repository<Machine>,
+    private cache: CacheService,
   ) {}
 
-  async findAll(query: { search?: string; floor?: string; machineType?: string; status?: string; facility?: string }) {
-    let qb = this.machinesRepo.createQueryBuilder('m');
+  async findAll(query: { search?: string; floor?: string; machineType?: string; status?: string; facility?: string; page?: number; limit?: number }) {
+    const cacheKey = `machines:${JSON.stringify(query)}`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    let qb = this.machinesRepo.createQueryBuilder('m')
+      .select([
+        'm.id', 'm.assetId', 'm.machineId', 'm.section', 'm.machineType',
+        'm.brand', 'm.modelNo', 'm.mfgSerialNo', 'm.legacyMachineNo', 'm.year',
+        'm.facility', 'm.floor', 'm.line', 'm.currentFacility', 'm.currentFloor',
+        'm.remarks', 'm.status', 'm.submitterName', 'm.rejectionReason', 'm.createdAt',
+      ]);
 
     if (query.facility) qb = qb.andWhere('(m.currentFacility = :fac OR m.facility = :fac)', { fac: query.facility });
     if (query.floor) qb = qb.andWhere('m.floor = :floor', { floor: query.floor });
@@ -24,7 +36,20 @@ export class MachinesService {
       );
     }
 
-    return qb.orderBy('m.machineId', 'ASC').addOrderBy('m.createdAt', 'ASC').getMany();
+    qb = qb.orderBy('m.machineId', 'ASC').addOrderBy('m.createdAt', 'ASC');
+
+    let result: any;
+    if (query.page && query.limit) {
+      const page = Math.max(1, Number(query.page));
+      const limit = Math.min(100, Math.max(1, Number(query.limit)));
+      const [data, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+      result = { data, total, page, limit };
+    } else {
+      result = await qb.getMany();
+    }
+
+    await this.cache.set(cacheKey, result, 10);
+    return result;
   }
 
   async findOne(id: number): Promise<Machine | null> {
@@ -52,7 +77,10 @@ export class MachinesService {
       currentFacility: data.facility,
       currentFloor: data.floor,
     });
-    return this.machinesRepo.save(machine);
+    const saved = await this.machinesRepo.save(machine);
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
+    return saved;
   }
 
   async generateMachineId(facility: string, machineType: string): Promise<string> {
@@ -81,7 +109,10 @@ export class MachinesService {
     machine.status = MachineStatus.PENDING_ADMIN;
     machine.firstApprovedBy = approvedBy;
     machine.firstApprovedAt = new Date();
-    return this.machinesRepo.save(machine);
+    const saved = await this.machinesRepo.save(machine);
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
+    return saved;
   }
 
   async secondApprove(id: number, approvedBy: number): Promise<Machine> {
@@ -93,7 +124,10 @@ export class MachinesService {
     machine.status = MachineStatus.ACTIVE;
     machine.secondApprovedBy = approvedBy;
     machine.secondApprovedAt = new Date();
-    return this.machinesRepo.save(machine);
+    const saved = await this.machinesRepo.save(machine);
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
+    return saved;
   }
 
   async reject(id: number, rejectedBy: number, reason: string): Promise<Machine> {
@@ -106,15 +140,22 @@ export class MachinesService {
     machine.rejectedBy = rejectedBy;
     machine.rejectedAt = new Date();
     machine.rejectionReason = reason;
-    return this.machinesRepo.save(machine);
+    const saved = await this.machinesRepo.save(machine);
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
+    return saved;
   }
 
   async updateStatus(id: number, status: MachineStatus): Promise<void> {
     await this.machinesRepo.update(id, { status });
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
   }
 
   async updateStatusAndLocation(id: number, status: MachineStatus, facility: string, floor: string): Promise<void> {
     await this.machinesRepo.update(id, { status, currentFacility: facility, currentFloor: floor });
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
   }
 
   async permanentTransfer(id: number, newFacility: string, newFloor: string): Promise<void> {
@@ -125,6 +166,8 @@ export class MachinesService {
       currentFloor: newFloor,
       status: MachineStatus.ACTIVE,
     });
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
   }
 
   async internalTransfer(id: number, newFloor: string, newLine?: string): Promise<void> {
@@ -135,6 +178,8 @@ export class MachinesService {
     };
     if (newLine) update.line = newLine;
     await this.machinesRepo.update(id, update);
+    await this.cache.invalidate('machines:*');
+    await this.cache.invalidate('dashboard:*');
   }
 
   async reassignMachineId(id: number, newFacility: string): Promise<string> {
@@ -199,6 +244,20 @@ export class MachinesService {
       if (bi !== -1) return 1;
       return a.floor.localeCompare(b.floor);
     });
+  }
+
+  async countByFactory(): Promise<{ facility: string; machineType: string; count: number }[]> {
+    return this.machinesRepo
+      .createQueryBuilder('m')
+      .select('m.currentFacility', 'facility')
+      .addSelect('m.machineType', 'machineType')
+      .addSelect('COUNT(*)', 'count')
+      .where('m.status = :status', { status: MachineStatus.ACTIVE })
+      .groupBy('m.currentFacility')
+      .addGroupBy('m.machineType')
+      .orderBy('m.currentFacility')
+      .addOrderBy('count', 'DESC')
+      .getRawMany();
   }
 
   async countByType(): Promise<{ machineType: string; count: number }[]> {

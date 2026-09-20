@@ -365,7 +365,7 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
           </Row>
           <Row gutter={12}>
             <Col span={12}><Form.Item name="serialNo" label="Serial No"><Input /></Form.Item></Col>
-            <Col span={12}><Form.Item name="supplier" label="Supplier"><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="supplier" label="Supplier" rules={[{ required: true }]}><Input /></Form.Item></Col>
           </Row>
           <Row gutter={12}>
             <Col span={12}>
@@ -377,7 +377,7 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
           </Row>
           <Row gutter={12}>
             <Col span={8}>
-              <Form.Item name="floor" label="Floor" rules={[{ required: true }]}>
+              <Form.Item name="floor" label="Floor">
                 <AutoComplete
                   options={toAutoOpts(suggestions.floors)}
                   placeholder="e.g. 3RD"
@@ -386,7 +386,7 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="section" label="Section" rules={[{ required: true }]}>
+              <Form.Item name="section" label="Section">
                 <AutoComplete
                   options={toAutoOpts(suggestions.sections)}
                   placeholder="e.g. SE"
@@ -395,7 +395,7 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="line" label="Line" rules={[{ required: true }]}>
+              <Form.Item name="line" label="Line">
                 <AutoComplete
                   options={toAutoOpts(suggestions.lines)}
                   placeholder="e.g. 8"

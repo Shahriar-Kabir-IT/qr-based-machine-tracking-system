@@ -6,6 +6,7 @@ import { DowntimeService } from '../downtime/downtime.service';
 import { DowntimeStatus } from '../downtime/entities/downtime.entity';
 import { MaintenanceService } from '../maintenance/maintenance.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
+import { CacheService } from '../cache.service';
 
 @Controller('api/dashboard')
 @UseGuards(JwtAuthGuard)
@@ -16,10 +17,13 @@ export class DashboardController {
     private downtimeService: DowntimeService,
     private maintenanceService: MaintenanceService,
     private sparePartsService: SparePartsService,
+    private cache: CacheService,
   ) {}
 
   @Get()
   async getDashboard() {
+    const cached = await this.cache.get('dashboard:main');
+    if (cached) return cached;
     const [
       totalMachines,
       reported,
@@ -35,6 +39,7 @@ export class DashboardController {
       overdueCount,
       overdueLoans,
       returnRequests,
+      machinesByFactory,
     ] = await Promise.all([
       this.machinesService.count(),
       this.downtimeService.countByStatus(DowntimeStatus.REPORTED),
@@ -50,9 +55,10 @@ export class DashboardController {
       this.transfersService.countOverdue(),
       this.transfersService.findOverdue(),
       this.transfersService.findReturnRequests(),
+      this.machinesService.countByFactory(),
     ]);
 
-    return {
+    const result = {
       stats: {
         totalMachines,
         underMaintenance: reported + acknowledged + repairDone,
@@ -67,6 +73,10 @@ export class DashboardController {
       recentBreakdowns,
       overdueLoans,
       returnRequests,
+      machinesByFactory,
     };
+
+    await this.cache.set('dashboard:main', result, 15);
+    return result;
   }
 }

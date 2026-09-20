@@ -83,7 +83,21 @@ export class TransfersService {
     t.status = TransferStatus.SECOND_APPROVED;
     t.secondApprovedBy = userId;
     t.secondApprovedAt = new Date();
+    t.chalanNo = await this.generateChalanNo(t);
     return this.transfersRepo.save(t);
+  }
+
+  private async generateChalanNo(transfer: Transfer): Promise<string> {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `CH-${transfer.fromFacility}-${yy}${mm}`;
+    const last = await this.transfersRepo.createQueryBuilder('t')
+      .where('t.chalanNo LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('t.chalanNo', 'DESC')
+      .getOne();
+    const seq = last?.chalanNo ? Number(last.chalanNo.slice(-4)) + 1 : 1;
+    return `${prefix}-${String(seq).padStart(4, '0')}`;
   }
 
   async dispatch(id: number, userId: number): Promise<Transfer> {
