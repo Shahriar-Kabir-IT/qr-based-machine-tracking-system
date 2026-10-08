@@ -8,6 +8,8 @@ export enum RentalStatus {
   CONDITION_CONFIRMED = 'condition_confirmed',
   IN_USE = 'in_use',
   RETURN_REQUESTED = 'return_requested',
+  RETURN_FIRST_APPROVED = 'return_first_approved',
+  RETURN_SECOND_APPROVED = 'return_second_approved',
   RETURN_APPROVED = 'return_approved',
   RETURNED = 'returned',
 }
@@ -103,6 +105,24 @@ export class RentalRequest {
 
   @Column({ nullable: true })
   returnApprovedByName: string;
+
+  @Column({ nullable: true })
+  returnSecondApprovedBy: number;
+
+  @Column({ nullable: true })
+  returnSecondApprovedByName: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnSecondApprovedAt: Date;
+
+  @Column({ nullable: true })
+  returnThirdApprovedBy: number;
+
+  @Column({ nullable: true })
+  returnThirdApprovedByName: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnThirdApprovedAt: Date;
 
   @Column({ nullable: true })
   returnConfirmedBy: number;

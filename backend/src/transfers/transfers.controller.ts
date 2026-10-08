@@ -27,6 +27,16 @@ export class TransfersController {
     return this.transfersService.findOverdue();
   }
 
+  @Get('security')
+  findForSecurity() {
+    return this.transfersService.findForSecurity();
+  }
+
+  @Get('security/history')
+  findTransferHistory() {
+    return this.transfersService.findTransferHistory();
+  }
+
   @Get('return-requests')
   findReturnRequests() {
     return this.transfersService.findReturnRequests();
@@ -62,6 +72,34 @@ export class TransfersController {
     };
   }
 
+  @Get(':id/return-chalan')
+  async getReturnChalan(@Param('id') id: number) {
+    const t = await this.transfersService.findOne(id);
+    if (!t || !t.returnChalanNo) return { error: 'Return chalan not available' };
+    const [returnApprover, returnSecondApprover] = await Promise.all([
+      t.returnApprovedBy ? this.usersService.findOne(t.returnApprovedBy) : null,
+      t.returnSecondApprovedBy ? this.usersService.findOne(t.returnSecondApprovedBy) : null,
+    ]);
+    return {
+      chalanNo: t.returnChalanNo,
+      date: t.returnSecondApprovedAt,
+      basis: t.basis,
+      machine: {
+        machineId: t.machine?.machineId,
+        machineType: t.machine?.machineType,
+        brand: t.machine?.brand,
+        modelNo: t.machine?.modelNo,
+        mfgSerialNo: t.machine?.mfgSerialNo,
+      },
+      from: { facility: t.toFacility, floor: t.toFloor, section: t.toSection, line: t.toLine },
+      to: { facility: t.fromFacility, floor: t.fromFloor, section: t.fromSection, line: t.fromLine },
+      reason: 'Loan return',
+      expectedReturnDate: t.expectedReturnDate,
+      firstApprovedBy: returnApprover?.name || 'N/A',
+      secondApprovedBy: returnSecondApprover?.name || 'N/A',
+    };
+  }
+
   @Get(':id')
   findOne(@Param('id') id: number) {
     return this.transfersService.findOne(id);
@@ -85,14 +123,15 @@ export class TransfersController {
   }
 
   @Put(':id/dispatch')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SECURITY)
   dispatch(@Param('id') id: number, @Request() req: any) {
-    return this.transfersService.dispatch(id, req.user.id);
+    return this.transfersService.dispatch(id, req.user.id, req.user.name || req.user.username);
   }
 
   @Put(':id/receive')
+  @Roles(UserRole.SECURITY)
   receive(@Param('id') id: number, @Request() req: any) {
-    return this.transfersService.receive(id, req.user.id);
+    return this.transfersService.receive(id, req.user.id, req.user.name || req.user.username);
   }
 
   @Put(':id/request-return')
@@ -106,8 +145,26 @@ export class TransfersController {
     return this.transfersService.approveReturn(id, req.user.id);
   }
 
-  @Put(':id/reject')
+  @Put(':id/second-approve-return')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  secondApproveReturn(@Param('id') id: number, @Request() req: any) {
+    return this.transfersService.secondApproveReturn(id, req.user.id);
+  }
+
+  @Put(':id/dispatch-return')
+  @Roles(UserRole.SECURITY)
+  dispatchReturn(@Param('id') id: number, @Request() req: any) {
+    return this.transfersService.dispatchReturn(id, req.user.id, req.user.name || req.user.username);
+  }
+
+  @Put(':id/receive-return')
+  @Roles(UserRole.SECURITY)
+  receiveReturn(@Param('id') id: number, @Request() req: any) {
+    return this.transfersService.receiveReturn(id, req.user.id, req.user.name || req.user.username);
+  }
+
+  @Put(':id/reject')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SECURITY)
   reject(@Param('id') id: number, @Body() body: { reason: string }, @Request() req: any) {
     return this.transfersService.reject(id, req.user.id, body.reason);
   }

@@ -7,10 +7,10 @@ import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
 
 const statusLabels: Record<string, string> = {
-  pending: 'Pending', approved: 'Approved', store_issued: 'Store Issued', installed: 'Installed',
+  pending: 'Pending', approved: 'Approved', rejected: 'Rejected',
 };
 const statusColor: Record<string, string> = {
-  pending: 'orange', approved: 'blue', store_issued: 'cyan', installed: 'green',
+  pending: 'orange', approved: 'green', rejected: 'red',
 };
 const CHART_COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16', '#2f54eb', '#a0d911'];
 
@@ -21,7 +21,7 @@ function RequestsTab() {
   const [machines, setMachines] = useState<any[]>([]);
   const [catalogOptions, setCatalogOptions] = useState<any[]>([]);
   const [form] = Form.useForm();
-  const { isSuperAdmin, isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -82,12 +82,6 @@ function RequestsTab() {
         <Space>
           {r.status === 'pending' && isSuperAdmin && (
             <Button size="small" type="primary" onClick={() => handleAction(r.id, 'approve')}>Approve</Button>
-          )}
-          {r.status === 'approved' && isAdmin && (
-            <Button size="small" type="primary" onClick={() => handleAction(r.id, 'store-issue')}>Issue from Store</Button>
-          )}
-          {r.status === 'store_issued' && isSuperAdmin && (
-            <Button size="small" type="primary" onClick={() => handleAction(r.id, 'install')}>Mark Installed</Button>
           )}
         </Space>
       ),

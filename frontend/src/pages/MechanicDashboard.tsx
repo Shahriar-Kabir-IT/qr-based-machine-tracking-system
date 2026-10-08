@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Tag, Typography, Modal, Form, Input, Empty, Badge, message, Row, Col, Statistic, Descriptions } from 'antd';
-import { CheckCircleOutlined, ClockCircleOutlined, ToolOutlined, WarningOutlined } from '@ant-design/icons';
+import { Card, Button, Tag, Typography, Modal, Form, Input, InputNumber, Select, AutoComplete, Empty, Badge, message, Row, Col, Statistic, Descriptions } from 'antd';
+import { CheckCircleOutlined, ClockCircleOutlined, ToolOutlined, WarningOutlined, BuildOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import QrScanner from '../components/QrScanner';
@@ -30,7 +30,10 @@ export default function MechanicDashboard() {
   const [loading, setLoading] = useState(true);
   const [finishModal, setFinishModal] = useState<number | null>(null);
   const [scannedInfo, setScannedInfo] = useState<{ machine: any; issue: any } | null>(null);
+  const [sparePartModal, setSparePartModal] = useState<any>(null);
+  const [catalogOptions, setCatalogOptions] = useState<any[]>([]);
   const [form] = Form.useForm();
+  const [spareForm] = Form.useForm();
 
   const load = () => {
     setLoading(true);
@@ -66,15 +69,17 @@ export default function MechanicDashboard() {
         return;
       }
       const machine = machineRes.data[0];
-      const machineFloor = machine.currentFloor || machine.floor;
       const machineFacility = machine.currentFacility || machine.facility;
       if (user?.facility && machineFacility !== user.facility) {
         message.error(`This machine belongs to ${machineFacility} factory — you are assigned to ${user.facility}`);
         return;
       }
-      if (user?.floor && machineFloor !== user.floor) {
-        message.error(`This machine is on ${machineFloor} floor — you are assigned to ${user.floor} floor`);
-        return;
+      if (user?.lines) {
+        const userLines = user.lines.split(',').map(l => l.trim());
+        if (machine.line && !userLines.includes(machine.line)) {
+          message.error(`This machine is on Line ${machine.line} — you are assigned to Line ${userLines.join(', ')}`);
+          return;
+        }
       }
 
       const issue = records.find((r) => r.machineId === machine.id);
@@ -95,6 +100,42 @@ export default function MechanicDashboard() {
     } catch {
       message.error('Failed to look up machine');
     }
+  };
+
+  const searchCatalog = async (text: string) => {
+    if (text.length < 2) { setCatalogOptions([]); return; }
+    const params: any = { q: text };
+    if (sparePartModal) params.machineType = sparePartModal.machineType;
+    const res = await api.get('/spare-parts/catalog/search', { params });
+    setCatalogOptions(res.data.map((p: any) => ({
+      value: `${p.partNo} - ${p.description}`,
+      label: <span><strong>{p.partNo}</strong> — {p.description}</span>,
+    })));
+  };
+
+  const handleSparePartRequest = async (values: any) => {
+    const m = sparePartModal;
+    const items = values.items || [];
+    if (items.length === 0) { message.error('অন্তত একটি যন্ত্রাংশ যোগ করুন'); return; }
+    for (const item of items) {
+      await api.post('/spare-parts', {
+        machineId: m.id,
+        machineType: m.machineType,
+        mfgSerialNo: m.mfgSerialNo,
+        facility: m.currentFacility || m.facility,
+        floor: m.currentFloor || m.floor,
+        line: m.line,
+        part: item.part,
+        unit: item.unit || 'পিস',
+        qty: item.qty || 1,
+        reason: item.reason,
+        requestedBy: user?.name || user?.username,
+      });
+    }
+    message.success(`${items.length}টি যন্ত্রাংশের অনুরোধ সফলভাবে জমা হয়েছে`);
+    setSparePartModal(null);
+    spareForm.resetFields();
+    setCatalogOptions([]);
   };
 
   const reported = records.filter((r) => r.status === 'reported');
@@ -254,8 +295,67 @@ export default function MechanicDashboard() {
                 <Typography.Text>Machine status: {scannedInfo.machine.status?.replace(/_/g, ' ').toUpperCase()}</Typography.Text>
               </div>
             )}
+
+            <div style={{ textAlign: 'center', marginTop: 16 }}>
+              <Button type="default" icon={<BuildOutlined />} style={{ background: '#f0f5ff', borderColor: '#adc6ff' }} onClick={() => { setSparePartModal(scannedInfo.machine); setScannedInfo(null); spareForm.setFieldsValue({ machineNo: scannedInfo.machine.machineId }); }}>
+                যন্ত্রাংশের অনুরোধ
+              </Button>
+            </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title="স্টোর খরচপত্র — যন্ত্রাংশের অনুরোধ"
+        open={!!sparePartModal}
+        onCancel={() => { setSparePartModal(null); spareForm.resetFields(); setCatalogOptions([]); }}
+        onOk={() => spareForm.submit()}
+        okText="অনুরোধ জমা দিন"
+        cancelText="বাতিল"
+        width={520}
+      >
+        <Form form={spareForm} onFinish={handleSparePartRequest} layout="vertical">
+          <Form.Item label="মেশিন নং">
+            <Input disabled value={sparePartModal?.machineId} />
+          </Form.Item>
+          <Form.List name="items" initialValue={[{}]}>
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...rest }, index) => (
+                  <Card key={key} size="small" style={{ marginBottom: 10, background: '#fafafa' }} title={<span style={{ fontSize: 13 }}>যন্ত্রাংশ #{index + 1}</span>} extra={fields.length > 1 ? <MinusCircleOutlined style={{ color: '#ff4d4f' }} onClick={() => remove(name)} /> : null}>
+                    <Form.Item {...rest} name={[name, 'part']} label="যন্ত্রাংশের বিবরণ" rules={[{ required: true, message: 'যন্ত্রাংশের নাম লিখুন' }]}>
+                      <AutoComplete options={catalogOptions} onSearch={searchCatalog} placeholder="যন্ত্রাংশের নাম লিখুন বা খুঁজুন..." />
+                    </Form.Item>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item {...rest} name={[name, 'unit']} label="একক" initialValue="পিস">
+                          <Select>
+                            <Select.Option value="পিস">পিস</Select.Option>
+                            <Select.Option value="সেট">সেট</Select.Option>
+                            <Select.Option value="মিটার">মিটার</Select.Option>
+                            <Select.Option value="কেজি">কেজি</Select.Option>
+                            <Select.Option value="লিটার">লিটার</Select.Option>
+                          </Select>
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item {...rest} name={[name, 'qty']} label="পরিমাণ" initialValue={1} rules={[{ required: true, message: 'পরিমাণ লিখুন' }]}>
+                          <InputNumber min={1} style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Form.Item {...rest} name={[name, 'reason']} label="কারণ / মন্তব্য">
+                      <Input placeholder="কেন এই যন্ত্রাংশ প্রয়োজন..." />
+                    </Form.Item>
+                  </Card>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginBottom: 8 }}>
+                  আরও যন্ত্রাংশ যোগ করুন
+                </Button>
+              </>
+            )}
+          </Form.List>
+        </Form>
       </Modal>
 
       <Modal title="Finish Servicing" open={finishModal !== null} onCancel={() => { setFinishModal(null); form.resetFields(); }} onOk={() => form.submit()} okText="Finish Servicing">

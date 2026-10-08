@@ -11,6 +11,7 @@ const roleOptions = [
   { value: 'line_chief', label: 'Line Chief' },
   { value: 'mechanic', label: 'Mechanic' },
   { value: 'security', label: 'Security' },
+  { value: 'technical_manager', label: 'Technical Manager' },
 ];
 
 const roleColor: Record<string, string> = {
@@ -21,6 +22,7 @@ const roleColor: Record<string, string> = {
   mechanic: 'orange',
   system_admin: 'purple',
   security: 'volcano',
+  technical_manager: 'geekblue',
 };
 
 export default function UserManagement() {
@@ -81,6 +83,7 @@ export default function UserManagement() {
       },
     },
     { title: 'Facility', dataIndex: 'facility', key: 'facility', render: (v: string) => v || '—' },
+    { title: 'Lines', dataIndex: 'lines', key: 'lines', render: (v: string) => v || '—' },
     { title: 'Created', dataIndex: 'createdAt', key: 'created', render: (v: string) => dayjs(v).format('DD MMM YYYY') },
     {
       title: 'Actions', key: 'actions',
@@ -126,6 +129,7 @@ export default function UserManagement() {
           </Form.Item>
           <Form.Item name="facility" label="Facility"><Input placeholder="e.g. AGL, ABM, ASL" /></Form.Item>
           <Form.Item name="floor" label="Floor"><Input placeholder="e.g. 3RD, 4TH" /></Form.Item>
+          <Form.Item name="lines" label="Assigned Lines" extra="Comma-separated for multiple lines (e.g. H,L)"><Input placeholder="e.g. H or H,L" /></Form.Item>
         </Form>
       </Modal>
     </div>

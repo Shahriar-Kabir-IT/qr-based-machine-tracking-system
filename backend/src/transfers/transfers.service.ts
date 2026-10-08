@@ -31,7 +31,7 @@ export class TransfersService {
     const qb = this.transfersRepo.createQueryBuilder('t')
       .leftJoinAndSelect('t.machine', 'machine')
       .where('t.basis = :basis', { basis: TransferBasis.LOAN })
-      .andWhere('t.status IN (:...statuses)', { statuses: [TransferStatus.RECEIVED, TransferStatus.RETURN_REQUESTED] })
+      .andWhere('t.status IN (:...statuses)', { statuses: [TransferStatus.RECEIVED, TransferStatus.RETURN_REQUESTED, TransferStatus.RETURN_FIRST_APPROVED, TransferStatus.RETURN_SECOND_APPROVED, TransferStatus.RETURN_DISPATCHED] })
       .orderBy('t.expectedReturnDate', 'ASC');
     if (facility) {
       qb.andWhere('(t.fromFacility = :fac OR t.toFacility = :fac)', { fac: facility });
@@ -44,10 +44,41 @@ export class TransfersService {
     return this.transfersRepo.createQueryBuilder('t')
       .leftJoinAndSelect('t.machine', 'machine')
       .where('t.basis = :basis', { basis: TransferBasis.LOAN })
-      .andWhere('t.status IN (:...statuses)', { statuses: [TransferStatus.RECEIVED, TransferStatus.RETURN_REQUESTED] })
+      .andWhere('t.status IN (:...statuses)', { statuses: [TransferStatus.RECEIVED, TransferStatus.RETURN_REQUESTED, TransferStatus.RETURN_FIRST_APPROVED, TransferStatus.RETURN_SECOND_APPROVED, TransferStatus.RETURN_DISPATCHED] })
       .andWhere('t.expectedReturnDate IS NOT NULL')
       .andWhere('t.expectedReturnDate < :today', { today })
       .orderBy('t.expectedReturnDate', 'ASC')
+      .getMany();
+  }
+
+  async findForSecurity(): Promise<Transfer[]> {
+    return this.transfersRepo.createQueryBuilder('t')
+      .leftJoinAndSelect('t.machine', 'machine')
+      .where('t.status IN (:...statuses)', {
+        statuses: [
+          TransferStatus.SECOND_APPROVED,
+          TransferStatus.DISPATCHED,
+          TransferStatus.RETURN_SECOND_APPROVED,
+          TransferStatus.RETURN_DISPATCHED,
+        ],
+      })
+      .orderBy('t.secondApprovedAt', 'DESC')
+      .getMany();
+  }
+
+  async findTransferHistory(): Promise<Transfer[]> {
+    return this.transfersRepo.createQueryBuilder('t')
+      .leftJoinAndSelect('t.machine', 'machine')
+      .where('t.status IN (:...statuses)', {
+        statuses: [
+          TransferStatus.RECEIVED,
+          TransferStatus.COMPLETED,
+          TransferStatus.RETURNED,
+          TransferStatus.REJECTED,
+        ],
+      })
+      .orderBy('t.requestedAt', 'DESC')
+      .limit(50)
       .getMany();
   }
 
@@ -71,6 +102,16 @@ export class TransfersService {
   async firstApprove(id: number, userId: number): Promise<Transfer> {
     const t = await this.findOne(id);
     if (!t || t.status !== TransferStatus.REQUESTED) throw new BadRequestException('Invalid status');
+
+    if (t.basis === TransferBasis.INTERNAL) {
+      t.status = TransferStatus.COMPLETED;
+      t.firstApprovedBy = userId;
+      t.firstApprovedAt = new Date();
+      t.completedAt = new Date();
+      await this.machinesService.internalTransfer(t.machineId, t.toFloor, t.toLine);
+      return this.transfersRepo.save(t);
+    }
+
     t.status = TransferStatus.FIRST_APPROVED;
     t.firstApprovedBy = userId;
     t.firstApprovedAt = new Date();
@@ -100,25 +141,38 @@ export class TransfersService {
     return `${prefix}-${String(seq).padStart(4, '0')}`;
   }
 
-  async dispatch(id: number, userId: number): Promise<Transfer> {
+  private async generateReturnChalanNo(transfer: Transfer): Promise<string> {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `RCH-${transfer.toFacility}-${yy}${mm}`;
+    const last = await this.transfersRepo.createQueryBuilder('t')
+      .where('t.returnChalanNo LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('t.returnChalanNo', 'DESC')
+      .getOne();
+    const seq = last?.returnChalanNo ? Number(last.returnChalanNo.slice(-4)) + 1 : 1;
+    return `${prefix}-${String(seq).padStart(4, '0')}`;
+  }
+
+  async dispatch(id: number, userId: number, userName: string): Promise<Transfer> {
     const t = await this.findOne(id);
     if (!t || t.status !== TransferStatus.SECOND_APPROVED) throw new BadRequestException('Invalid status');
     t.status = TransferStatus.DISPATCHED;
     t.dispatchedBy = userId;
+    t.dispatchedByName = userName;
     t.dispatchedAt = new Date();
     return this.transfersRepo.save(t);
   }
 
-  async receive(id: number, userId: number): Promise<Transfer> {
+  async receive(id: number, userId: number, userName: string): Promise<Transfer> {
     const t = await this.findOne(id);
     if (!t || t.status !== TransferStatus.DISPATCHED) throw new BadRequestException('Invalid status');
     t.status = TransferStatus.RECEIVED;
     t.receivedBy = userId;
+    t.receivedByName = userName;
     t.receivedAt = new Date();
 
-    if (t.basis === TransferBasis.INTERNAL) {
-      await this.machinesService.internalTransfer(t.machineId, t.toFloor, t.toLine);
-    } else if (t.basis === TransferBasis.PERMANENT) {
+    if (t.basis === TransferBasis.PERMANENT) {
       if (t.fromFacility !== t.toFacility) {
         await this.machinesService.reassignMachineId(t.machineId, t.toFacility);
       }
@@ -139,16 +193,46 @@ export class TransfersService {
     t.status = TransferStatus.RETURN_REQUESTED;
     t.returnRequestedBy = userId;
     t.returnRequestedAt = new Date();
-    await this.machinesService.updateStatus(t.machineId, MachineStatus.IN_TRANSIT);
     return this.transfersRepo.save(t);
   }
 
   async approveReturn(id: number, userId: number): Promise<Transfer> {
     const t = await this.findOne(id);
     if (!t || t.status !== TransferStatus.RETURN_REQUESTED) throw new BadRequestException('Invalid status');
-    t.status = TransferStatus.RETURN_APPROVED;
+    t.status = TransferStatus.RETURN_FIRST_APPROVED;
     t.returnApprovedBy = userId;
     t.returnApprovedAt = new Date();
+    return this.transfersRepo.save(t);
+  }
+
+  async secondApproveReturn(id: number, userId: number): Promise<Transfer> {
+    const t = await this.findOne(id);
+    if (!t || t.status !== TransferStatus.RETURN_FIRST_APPROVED) throw new BadRequestException('Invalid status');
+    t.status = TransferStatus.RETURN_SECOND_APPROVED;
+    t.returnSecondApprovedBy = userId;
+    t.returnSecondApprovedAt = new Date();
+    t.returnChalanNo = await this.generateReturnChalanNo(t);
+    return this.transfersRepo.save(t);
+  }
+
+  async dispatchReturn(id: number, userId: number, userName: string): Promise<Transfer> {
+    const t = await this.findOne(id);
+    if (!t || t.status !== TransferStatus.RETURN_SECOND_APPROVED) throw new BadRequestException('Invalid status');
+    t.status = TransferStatus.RETURN_DISPATCHED;
+    t.returnDispatchedBy = userId;
+    t.returnDispatchedByName = userName;
+    t.returnDispatchedAt = new Date();
+    await this.machinesService.updateStatus(t.machineId, MachineStatus.IN_TRANSIT);
+    return this.transfersRepo.save(t);
+  }
+
+  async receiveReturn(id: number, userId: number, userName: string): Promise<Transfer> {
+    const t = await this.findOne(id);
+    if (!t || t.status !== TransferStatus.RETURN_DISPATCHED) throw new BadRequestException('Invalid status');
+    t.status = TransferStatus.RETURNED;
+    t.returnReceivedBy = userId;
+    t.returnReceivedByName = userName;
+    t.returnReceivedAt = new Date();
     await this.machinesService.updateStatusAndLocation(
       t.machineId, MachineStatus.ACTIVE, t.fromFacility, t.fromFloor,
     );
@@ -174,6 +258,9 @@ export class TransfersService {
       where: [
         { basis: TransferBasis.LOAN, status: TransferStatus.RECEIVED },
         { basis: TransferBasis.LOAN, status: TransferStatus.RETURN_REQUESTED },
+        { basis: TransferBasis.LOAN, status: TransferStatus.RETURN_FIRST_APPROVED },
+        { basis: TransferBasis.LOAN, status: TransferStatus.RETURN_SECOND_APPROVED },
+        { basis: TransferBasis.LOAN, status: TransferStatus.RETURN_DISPATCHED },
       ],
     });
   }
@@ -182,7 +269,7 @@ export class TransfersService {
     const today = new Date().toISOString().split('T')[0];
     return this.transfersRepo.createQueryBuilder('t')
       .where('t.basis = :basis', { basis: TransferBasis.LOAN })
-      .andWhere('t.status IN (:...statuses)', { statuses: [TransferStatus.RECEIVED, TransferStatus.RETURN_REQUESTED] })
+      .andWhere('t.status IN (:...statuses)', { statuses: [TransferStatus.RECEIVED, TransferStatus.RETURN_REQUESTED, TransferStatus.RETURN_FIRST_APPROVED, TransferStatus.RETURN_SECOND_APPROVED, TransferStatus.RETURN_DISPATCHED] })
       .andWhere('t.expectedReturnDate IS NOT NULL')
       .andWhere('t.expectedReturnDate < :today', { today })
       .getCount();

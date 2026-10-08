@@ -35,6 +35,11 @@ export class RentalController {
     return this.rentalService.findHistory(facility);
   }
 
+  @Get(':id/chalan')
+  getChalanData(@Param('id') id: number) {
+    return this.rentalService.getChalanData(id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: number) {
     return this.rentalService.findOne(id);
@@ -90,6 +95,12 @@ export class RentalController {
   @Roles(UserRole.SUPER_ADMIN)
   approveReturn(@Param('id') id: number, @Request() req: any) {
     return this.rentalService.approveReturn(id, req.user.id, req.user.name);
+  }
+
+  @Put(':id/second-approve-return')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  secondApproveReturn(@Param('id') id: number, @Request() req: any) {
+    return this.rentalService.secondApproveReturn(id, req.user.id, req.user.name);
   }
 
   @Put(':id/confirm-return')

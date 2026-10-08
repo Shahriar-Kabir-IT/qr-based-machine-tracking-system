@@ -30,12 +30,13 @@ const roleLabels: Record<string, string> = {
   mechanic: 'Mechanic',
   system_admin: 'System Admin',
   security: 'Security',
+  technical_manager: 'Technical Manager',
 };
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isUser, isMechanic, isLineChief, isSystemAdmin, isSecurity } = useAuth();
+  const { user, logout, isUser, isMechanic, isLineChief, isSystemAdmin, isSecurity, isTechManager } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   let menuItems;
@@ -47,6 +48,10 @@ export default function AppLayout() {
   } else if (isSecurity) {
     menuItems = [
       { key: '/security', icon: <DatabaseOutlined />, label: 'Security Dashboard' },
+    ];
+  } else if (isTechManager) {
+    menuItems = [
+      { key: '/tech-manager', icon: <BuildOutlined />, label: 'যন্ত্রাংশ অনুমোদন' },
     ];
   } else if (isMechanic) {
     menuItems = [

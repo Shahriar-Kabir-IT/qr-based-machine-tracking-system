@@ -17,8 +17,8 @@ const sectionOptions = [
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   active: { color: 'success', label: 'Active' },
-  pending_super_admin: { color: 'warning', label: 'Pending (WS)' },
-  pending_admin: { color: 'processing', label: 'Pending (Admin)' },
+  pending_super_admin: { color: 'warning', label: 'Pending Approval' },
+  pending_admin: { color: 'warning', label: 'Pending Approval' },
   rejected: { color: 'error', label: 'Rejected' },
   under_repair: { color: 'warning', label: 'Under Repair' },
   in_transit: { color: 'processing', label: 'In Transit' },
@@ -33,7 +33,7 @@ function QrTagPrint({ machine }: { machine: any }) {
     const pw = window.open('', '_blank', 'width=400,height=120');
     if (!pw) return;
     const td = getMachineTypeDisplay(machine.machineType);
-    pw.document.write(`<html><head><title>QR Tag - ${machine.machineId}</title><style>@page{size:4in 1in;margin:0}body{margin:0;padding:0}.tag{display:flex;align-items:center;gap:8px;padding:4px 8px;width:4in;height:1in;box-sizing:border-box;font-family:Arial,sans-serif}.tag svg{flex-shrink:0}.info{flex:1;overflow:hidden}.info .aid{font-size:22px;font-weight:bold;margin:0;letter-spacing:1px}.info .d{font-size:9px;margin:0;color:#333}</style></head><body><div class="tag">${tagRef.current.querySelector('svg')?.outerHTML||''}<div class="info"><p class="aid">${machine.machineId}</p><p class="d">${td.fullName} | ${machine.brand || ''} ${machine.modelNo || ''}</p><p class="d">S/N: ${machine.mfgSerialNo||'N/A'}</p></div></div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`);
+    pw.document.write(`<html><head><title>QR Tag - ${machine.machineId}</title><style>@page{size:4in 1in;margin:0}body{margin:0;padding:0}.tag{display:flex;align-items:center;gap:8px;padding:2px 8px;width:4in;height:1in;box-sizing:border-box;font-family:Arial,sans-serif}.tag svg{flex-shrink:0;width:0.9in;height:0.9in}.info{flex:1;overflow:hidden}.info .aid{font-size:22px;font-weight:bold;margin:0;letter-spacing:1px}.info .d{font-size:9px;margin:0;color:#333}</style></head><body><div class="tag">${tagRef.current.querySelector('svg')?.outerHTML||''}<div class="info"><p class="aid">${machine.machineId}</p><p class="d">${td.fullName} | ${machine.brand || ''} ${machine.modelNo || ''}</p><p class="d">S/N: ${machine.mfgSerialNo||'N/A'}</p></div></div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`);
     pw.document.close();
   };
   const handleSaveSvg = () => {
@@ -42,13 +42,15 @@ function QrTagPrint({ machine }: { machine: any }) {
     if (!qrSvg) return;
     const qrMarkup = new XMLSerializer().serializeToString(qrSvg);
     const td = getMachineTypeDisplay(machine.machineType);
-    const qrEmbed = qrMarkup.replace(/<svg[^>]*>/, `<svg xmlns="http://www.w3.org/2000/svg" x="18" y="15" width="148" height="148" viewBox="0 0 72 72">`);
-    const tagSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="580" height="180" viewBox="0 0 580 180">
-  <rect width="580" height="180" fill="#fafafa" rx="8" stroke="#d9d9d9" stroke-dasharray="6,4"/>
+    const vbMatch = qrMarkup.match(/viewBox="([^"]*)"/);
+    const vb = vbMatch ? vbMatch[1] : '0 0 21 21';
+    const qrEmbed = qrMarkup.replace(/<svg[^>]*>/, `<svg xmlns="http://www.w3.org/2000/svg" x="10" y="10" width="160" height="160" viewBox="${vb}">`);
+    const tagSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="680" height="230" viewBox="0 0 680 230">
+  <rect width="680" height="230" fill="#fafafa" rx="8" stroke="#d9d9d9" stroke-dasharray="6,4"/>
   ${qrEmbed}
-  <text x="185" y="55" font-family="Arial,sans-serif" font-size="36" font-weight="bold" letter-spacing="1.5" fill="#000">${machine.machineId}</text>
-  <text x="185" y="95" font-family="Arial,sans-serif" font-size="16" fill="#666">${td.fullName} | ${machine.brand || ''} ${machine.modelNo || ''}</text>
-  <text x="185" y="130" font-family="Arial,sans-serif" font-size="14" fill="#888">S/N: ${machine.mfgSerialNo || 'N/A'}</text>
+  <text x="245" y="70" font-family="Arial,sans-serif" font-size="40" font-weight="bold" letter-spacing="1.5" fill="#000">${machine.machineId}</text>
+  <text x="245" y="120" font-family="Arial,sans-serif" font-size="18" fill="#666">${td.fullName} | ${machine.brand || ''} ${machine.modelNo || ''}</text>
+  <text x="245" y="160" font-family="Arial,sans-serif" font-size="16" fill="#888">S/N: ${machine.mfgSerialNo || 'N/A'}</text>
 </svg>`;
     const blob = new Blob([tagSvg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -63,7 +65,7 @@ function QrTagPrint({ machine }: { machine: any }) {
   return (
     <div>
       <div ref={tagRef} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16, border: '1px dashed #d9d9d9', borderRadius: 8, background: '#fafafa' }}>
-        <QRCodeSVG value={machine.machineId} size={72} level="M" />
+        <div style={{ minWidth: 140, minHeight: 140, flexShrink: 0 }}><QRCodeSVG value={machine.machineId} size={140} level="M" /></div>
         <div>
           <Typography.Title level={3} style={{ margin: 0, letterSpacing: 1 }}>{machine.machineId}</Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>{getMachineTypeDisplay(machine.machineType).fullName} | {machine.brand || ''} {machine.modelNo || ''}</Typography.Text><br />
@@ -89,7 +91,7 @@ export default function Inventory() {
   const [suggestions, setSuggestions] = useState<{ floors: string[]; sections: string[]; lines: string[] }>({ floors: [], sections: [], lines: [] });
   const [form] = Form.useForm();
   const [rejectForm] = Form.useForm();
-  const { user, isSuperAdmin, isAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const isAdminOnly = user?.role === 'admin';
   const [selectedFactory, setSelectedFactory] = useState<string | null>(isAdminOnly && user?.facility ? user.facility : null);
 
@@ -126,15 +128,9 @@ export default function Inventory() {
     load();
   };
 
-  const handleFirstApprove = async (id: number) => {
-    await api.put(`/machines/${id}/first-approve`);
-    message.success('Approved — forwarded to Administration');
-    load();
-  };
-
-  const handleSecondApprove = async (id: number) => {
-    await api.put(`/machines/${id}/second-approve`);
-    message.success('Approved — now active');
+  const handleApprove = async (id: number) => {
+    await api.put(`/machines/${id}/approve`);
+    message.success('Machine approved and activated');
     load();
   };
 
@@ -152,6 +148,7 @@ export default function Inventory() {
   const uniqueSections = [...new Set(machines.map((m) => m.section || 'SE'))].sort();
   const uniqueTypes = [...new Set(machines.map((m) => m.machineType))].sort();
   const uniqueFloors = [...new Set(machines.map((m) => m.currentFloor || m.floor))].sort();
+  const uniqueLines = [...new Set(machines.map((m) => m.line).filter(Boolean))].sort((a, b) => { const na = parseInt(a), nb = parseInt(b); return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b); });
   const uniqueFactories = [...new Set(machines.map((m) => m.currentFacility || m.facility))].sort();
 
   const columns: ColumnsType<any> = [
@@ -199,6 +196,14 @@ export default function Inventory() {
       render: (v: string) => <Tag color="geekblue" style={{ margin: 0, fontSize: 11 }}>{v}</Tag>,
     },
     {
+      title: 'Line', dataIndex: 'line', key: 'line',
+      filters: uniqueLines.map((l) => ({ text: l, value: l })),
+      onFilter: (value: any, record: any) => record.line === value,
+      sorter: (a: any, b: any) => { const na = parseInt(a.line), nb = parseInt(b.line); return !isNaN(na) && !isNaN(nb) ? na - nb : (a.line || '').localeCompare(b.line || ''); },
+      width: 60,
+      render: (v: string) => v ? <Tag color="cyan" style={{ margin: 0, fontSize: 11 }}>{v}</Tag> : <span style={{ color: '#ccc' }}>—</span>,
+    },
+    {
       title: 'Factory', dataIndex: 'currentFacility', key: 'facility',
       filters: uniqueFactories.map((f) => ({ text: f, value: f })),
       onFilter: (value: any, record: any) => (record.currentFacility || record.facility) === value,
@@ -222,15 +227,9 @@ export default function Inventory() {
           <Tooltip title="View">
             <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setDetailModal(record)} style={{ padding: '0 4px' }} />
           </Tooltip>
-          {isSuperAdmin && record.status === 'pending_super_admin' && (
+          {isSuperAdmin && ['pending_super_admin', 'pending_admin'].includes(record.status) && (
             <>
-              <Tooltip title="Approve"><Button size="small" type="text" style={{ color: '#52c41a', padding: '0 4px' }} icon={<CheckOutlined />} onClick={() => handleFirstApprove(record.id)} /></Tooltip>
-              <Tooltip title="Reject"><Button size="small" type="text" danger icon={<CloseOutlined />} onClick={() => setRejectModal(record.id)} style={{ padding: '0 4px' }} /></Tooltip>
-            </>
-          )}
-          {isAdmin && record.status === 'pending_admin' && (
-            <>
-              <Tooltip title="Approve"><Button size="small" type="text" style={{ color: '#52c41a', padding: '0 4px' }} icon={<CheckOutlined />} onClick={() => handleSecondApprove(record.id)} /></Tooltip>
+              <Tooltip title="Approve"><Button size="small" type="text" style={{ color: '#52c41a', padding: '0 4px' }} icon={<CheckOutlined />} onClick={() => handleApprove(record.id)} /></Tooltip>
               <Tooltip title="Reject"><Button size="small" type="text" danger icon={<CloseOutlined />} onClick={() => setRejectModal(record.id)} style={{ padding: '0 4px' }} /></Tooltip>
             </>
           )}

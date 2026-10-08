@@ -9,9 +9,13 @@ export class MachinesController {
   constructor(private machinesService: MachinesService) {}
 
   @Get()
-  findAll(@Query() query: { search?: string; floor?: string; machineType?: string; status?: string; facility?: string }, @Request() req: any) {
+  findAll(@Query() query: { search?: string; floor?: string; machineType?: string; status?: string; facility?: string; lines?: string }, @Request() req: any) {
     if (req.user.role === UserRole.ADMIN && req.user.facility) {
       return this.machinesService.findAll({ ...query, facility: req.user.facility });
+    }
+    if ((req.user.role === UserRole.LINE_CHIEF || req.user.role === UserRole.MECHANIC)) {
+      if (!req.user.facility || !req.user.floor || !req.user.lines) return [];
+      return this.machinesService.findAll({ ...query, facility: req.user.facility, floor: req.user.floor, lines: req.user.lines });
     }
     return this.machinesService.findAll(query);
   }
@@ -57,16 +61,10 @@ export class MachinesController {
     });
   }
 
-  @Put(':id/first-approve')
+  @Put(':id/approve')
   @Roles(UserRole.SUPER_ADMIN)
-  firstApprove(@Param('id') id: number, @Request() req: any) {
-    return this.machinesService.firstApprove(id, req.user.id);
-  }
-
-  @Put(':id/second-approve')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
-  secondApprove(@Param('id') id: number, @Request() req: any) {
-    return this.machinesService.secondApprove(id, req.user.id);
+  approve(@Param('id') id: number, @Request() req: any) {
+    return this.machinesService.approve(id, req.user.id);
   }
 
   @Put(':id/reject')

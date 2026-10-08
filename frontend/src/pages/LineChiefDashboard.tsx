@@ -33,7 +33,6 @@ export default function LineChiefDashboard() {
     setLoading(true);
     const params: any = {};
     if (user?.facility) params.facility = user.facility;
-    if (user?.floor) params.floor = user.floor;
     api.get('/machines', { params }).then((res) => {
       setMachines(res.data);
       setLoading(false);
@@ -90,15 +89,17 @@ export default function LineChiefDashboard() {
         return;
       }
       const machine = res.data[0];
-      const machineFloor = machine.currentFloor || machine.floor;
       const machineFacility = machine.currentFacility || machine.facility;
       if (user?.facility && machineFacility !== user.facility) {
         message.error(`This machine belongs to ${machineFacility} factory — you are assigned to ${user.facility}`);
         return;
       }
-      if (user?.floor && machineFloor !== user.floor) {
-        message.error(`This machine is on ${machineFloor} floor — you are assigned to ${user.floor} floor`);
-        return;
+      if (user?.lines) {
+        const userLines = user.lines.split(',').map(l => l.trim());
+        if (machine.line && !userLines.includes(machine.line)) {
+          message.error(`This machine is on Line ${machine.line} — you are assigned to Line ${userLines.join(', ')}`);
+          return;
+        }
       }
       setScannedMachine(machine);
     } catch {
@@ -164,10 +165,10 @@ export default function LineChiefDashboard() {
       <div className="lc-header">
         <div style={{ flex: 1, minWidth: 0 }}>
           <Typography.Title level={4} style={{ margin: 0, fontSize: 'clamp(16px, 4vw, 20px)' }}>
-            My Machines — {user?.facility} / {user?.floor} Floor
+            My Machines — {user?.facility}{user?.lines ? ` / Line ${user.lines}` : ''}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Machines on your floor. Report issues to send for servicing.
+            Machines on your line. Report issues to send for servicing.
           </Typography.Text>
         </div>
         <QrScanner onScan={handleQrScan} buttonText="Scan QR to Report" buttonSize="middle" />

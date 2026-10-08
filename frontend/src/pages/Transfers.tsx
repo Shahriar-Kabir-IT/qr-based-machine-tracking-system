@@ -14,12 +14,18 @@ const facilityNames: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   requested: 'Requested',
-  first_approved: '1st Approved (Work Study)',
+  first_approved: '1st Approved (HoD)',
   second_approved: '2nd Approved (Admin)',
   dispatched: 'Dispatched',
-  received: 'Received',
+  received: 'Received (Dest. Security)',
+  completed: 'Completed',
   rejected: 'Rejected',
   return_requested: 'Return Requested',
+  return_first_approved: 'Return 1st Approved (HoD)',
+  return_second_approved: 'Return 2nd Approved (Admin)',
+  return_dispatched: 'Return Dispatched',
+  returned: 'Returned',
+  condition_confirmed: 'Condition Confirmed',
   return_approved: 'Returned',
 };
 
@@ -86,10 +92,11 @@ export default function Transfers() {
     load();
   };
 
-  const openChalan = async (id: number) => {
-    const res = await api.get(`/transfers/${id}/chalan`);
+  const openChalan = async (id: number, isReturn = false) => {
+    const endpoint = isReturn ? `/transfers/${id}/return-chalan` : `/transfers/${id}/chalan`;
+    const res = await api.get(endpoint);
     if (res.data.error) { message.error(res.data.error); return; }
-    setChalanData(res.data);
+    setChalanData({ ...res.data, isReturn });
   };
 
   const printChalan = () => {
@@ -110,9 +117,15 @@ export default function Transfers() {
 
   const statusColor: Record<string, string> = {
     requested: 'blue', first_approved: 'cyan', second_approved: 'geekblue',
-    dispatched: 'orange', received: 'green', rejected: 'red',
-    return_requested: 'volcano', return_approved: 'green',
+    dispatched: 'orange', received: 'green', completed: 'green', rejected: 'red',
+    return_requested: 'volcano', return_first_approved: 'gold', return_second_approved: 'lime',
+    return_dispatched: 'orange', returned: 'green',
+    condition_confirmed: 'green', return_approved: 'green',
   };
+
+  const isSecurity = user?.role === 'security';
+
+  const loanActiveStatuses = ['received', 'return_requested', 'return_first_approved', 'return_second_approved', 'return_dispatched'];
 
   const columns = [
     { title: 'Machine No', dataIndex: ['machine', 'machineId'], key: 'asset', render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> : 'N/A' },
@@ -124,7 +137,7 @@ export default function Transfers() {
         <span>
           <Tag color={v === 'permanent' ? 'purple' : v === 'internal' ? 'gold' : 'cyan'} style={{ margin: 0 }}>{v?.toUpperCase()}</Tag>
           {v === 'loan' && r.expectedReturnDate && (
-            <span style={{ fontSize: 10, color: dayjs(r.expectedReturnDate).isBefore(dayjs(), 'day') && ['received', 'return_requested'].includes(r.status) ? '#ff4d4f' : '#8c8c8c', marginLeft: 4 }}>
+            <span style={{ fontSize: 10, color: dayjs(r.expectedReturnDate).isBefore(dayjs(), 'day') && loanActiveStatuses.includes(r.status) ? '#ff4d4f' : '#8c8c8c', marginLeft: 4 }}>
               Due: {dayjs(r.expectedReturnDate).format('DD MMM')}
             </span>
           )}
@@ -132,38 +145,61 @@ export default function Transfers() {
       ),
     },
     { title: 'Reason', dataIndex: 'reason', key: 'reason', ellipsis: true },
-    { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColor[s]}>{statusLabels[s]}</Tag> },
+    { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColor[s]}>{statusLabels[s] || s}</Tag> },
     { title: 'Requested', dataIndex: 'requestedAt', key: 'time', render: (v: string) => dayjs(v).format('DD MMM HH:mm') },
     {
       title: 'Actions', key: 'actions',
       render: (_: any, record: any) => (
         <Space>
           <Button size="small" onClick={() => setDetailModal(record)}>View</Button>
+          {/* Outgoing flow */}
           {record.status === 'requested' && isSuperAdmin && (
-            <Button size="small" type="primary" onClick={() => handleAction(record.id, 'first-approve')}>1st Approve</Button>
+            <Button size="small" type="primary" onClick={() => handleAction(record.id, 'first-approve')}>Approve</Button>
           )}
-          {record.status === 'first_approved' && (isSuperAdmin || isAdmin) && (
+          {record.status === 'first_approved' && (isSuperAdmin || isAdmin) && record.basis !== 'internal' && (
             <Button size="small" type="primary" onClick={() => handleAction(record.id, 'second-approve')}>2nd Approve</Button>
           )}
           {record.chalanNo && (
             <Button size="small" icon={<PrinterOutlined />} onClick={() => openChalan(record.id)}>Chalan</Button>
           )}
-          {record.status === 'second_approved' && (isSuperAdmin || isAdmin) && (
+          {record.status === 'second_approved' && isSecurity && (
             <Button size="small" type="primary" onClick={() => handleAction(record.id, 'dispatch')}>Dispatch</Button>
           )}
-          {record.status === 'dispatched' && user?.facility === record.toFacility && (
-            <Button size="small" type="primary" onClick={() => handleAction(record.id, 'receive')}>Receive</Button>
+          {record.status === 'dispatched' && isSecurity && record.dispatchedBy !== user?.id && (
+            <>
+              <Button size="small" type="primary" onClick={() => handleAction(record.id, 'receive')}>Receive</Button>
+              <Button size="small" danger onClick={() => setRejectModal(record.id)}>Reject</Button>
+            </>
+          )}
+          {/* Loan return flow */}
+          {record.status === 'received' && record.basis === 'loan' && (isSuperAdmin || isAdmin) && (
+            <Button size="small" style={{ background: '#fa8c16', borderColor: '#fa8c16', color: '#fff' }} onClick={() => handleAction(record.id, 'request-return')}>Request Return</Button>
           )}
           {record.status === 'return_requested' && isSuperAdmin && (
-            <Button size="small" type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleAction(record.id, 'approve-return')}>Approve Return</Button>
+            <Button size="small" type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleAction(record.id, 'approve-return')}>1st Approve Return</Button>
           )}
-          {!['received', 'rejected', 'return_requested', 'return_approved'].includes(record.status) && (isSuperAdmin || isAdmin) && (
+          {record.status === 'return_first_approved' && (isSuperAdmin || isAdmin) && (
+            <Button size="small" type="primary" style={{ background: '#13c2c2', borderColor: '#13c2c2' }} onClick={() => handleAction(record.id, 'second-approve-return')}>2nd Approve Return</Button>
+          )}
+          {record.returnChalanNo && (
+            <Button size="small" icon={<PrinterOutlined />} onClick={() => openChalan(record.id, true)}>Return Chalan</Button>
+          )}
+          {record.status === 'return_second_approved' && isSecurity && (
+            <Button size="small" type="primary" style={{ background: '#722ed1', borderColor: '#722ed1' }} onClick={() => handleAction(record.id, 'dispatch-return')}>Dispatch Return</Button>
+          )}
+          {record.status === 'return_dispatched' && isSecurity && record.returnDispatchedBy !== user?.id && (
+            <Button size="small" type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleAction(record.id, 'receive-return')}>Receive Return</Button>
+          )}
+          {/* Reject (before dispatch) */}
+          {['requested', 'first_approved', 'second_approved'].includes(record.status) && (isSuperAdmin || isAdmin) && (
             <Button size="small" danger onClick={() => setRejectModal(record.id)}>Reject</Button>
           )}
         </Space>
       ),
     },
   ];
+
+  const signatureUrl = `${window.location.origin}/signature-hod.jpeg`;
 
   return (
     <div style={{ padding: '16px 20px' }}>
@@ -260,20 +296,20 @@ export default function Transfers() {
         </Form>
       </Modal>
 
-      <Modal title={`Chalan — ${chalanData?.chalanNo || ''}`} open={!!chalanData} onCancel={() => setChalanData(null)} width={700}
+      <Modal title={`${chalanData?.isReturn ? 'Return ' : ''}Chalan — ${chalanData?.chalanNo || ''}`} open={!!chalanData} onCancel={() => setChalanData(null)} width={700}
         footer={<Button type="primary" icon={<PrinterOutlined />} onClick={printChalan}>Print Chalan</Button>}>
         {chalanData && (
           <div id="chalan-print">
             <div style={{ border: '2px solid #000', padding: 24 }}>
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{facilityNames[chalanData.from.facility] || chalanData.from.facility}</h2>
-                <h3 style={{ margin: '4px 0', fontSize: 16 }}>Machine Transfer Chalan</h3>
+                <h3 style={{ margin: '4px 0', fontSize: 16 }}>{chalanData.isReturn ? 'Machine Return Chalan' : 'Machine Transfer Chalan'}</h3>
                 <div style={{ fontSize: 12, color: '#666' }}>Delivery Note / Gate Pass</div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 13 }}>
                 <div><strong>Chalan No:</strong> {chalanData.chalanNo}</div>
                 <div><strong>Date:</strong> {dayjs(chalanData.date).format('DD MMM YYYY')}</div>
-                <div><strong>Type:</strong> {chalanData.basis?.toUpperCase()}</div>
+                <div><strong>Type:</strong> {chalanData.basis?.toUpperCase()}{chalanData.isReturn ? ' (RETURN)' : ''}</div>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16, fontSize: 13 }}>
                 <thead>
@@ -331,15 +367,18 @@ export default function Transfers() {
               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24, fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#f0f0f0' }}>
-                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>Requested By</th>
-                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>1st Approved By</th>
-                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>2nd Approved By</th>
+                    {!chalanData.isReturn && <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>Requested By</th>}
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>1st Approved By (HoD)</th>
+                    <th style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'left' }}>2nd Approved By (Admin)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.requestedBy}</td>
-                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.firstApprovedBy}</td>
+                    {!chalanData.isReturn && <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.requestedBy}</td>}
+                    <td style={{ border: '1px solid #000', padding: '6px 10px' }}>
+                      <div>{chalanData.firstApprovedBy}</div>
+                      <img src={signatureUrl} alt="HoD Signature" style={{ height: 80, marginTop: 4, objectFit: 'contain' }} />
+                    </td>
                     <td style={{ border: '1px solid #000', padding: '6px 10px' }}>{chalanData.secondApprovedBy}</td>
                   </tr>
                 </tbody>
@@ -362,10 +401,20 @@ export default function Transfers() {
 
       <Modal title="Transfer Details" open={!!detailModal} onCancel={() => setDetailModal(null)} footer={null} width={520}>
         {detailModal && (() => {
-          const allSteps = detailModal.basis === 'loan'
-            ? ['requested', 'first_approved', 'second_approved', 'dispatched', 'received', 'return_requested', 'return_approved']
-            : ['requested', 'first_approved', 'second_approved', 'dispatched', 'received'];
-          const stepLabels: Record<string, string> = { requested: 'Requested', first_approved: '1st Approved', second_approved: '2nd Approved', dispatched: 'Dispatched', received: 'Received', return_requested: 'Return Req.', return_approved: 'Returned' };
+          let allSteps: string[];
+          if (detailModal.basis === 'internal') {
+            allSteps = ['requested', 'completed'];
+          } else if (detailModal.basis === 'loan') {
+            allSteps = ['requested', 'first_approved', 'second_approved', 'dispatched', 'received', 'return_requested', 'return_first_approved', 'return_second_approved', 'return_dispatched', 'returned'];
+          } else {
+            allSteps = ['requested', 'first_approved', 'second_approved', 'dispatched', 'received'];
+          }
+          const stepLabelsMap: Record<string, string> = {
+            requested: 'Requested', first_approved: 'HoD Approved', second_approved: 'Admin Approved',
+            dispatched: 'Dispatched', received: 'Received', completed: 'Completed',
+            return_requested: 'Return Req.', return_first_approved: 'Return HoD', return_second_approved: 'Return Admin',
+            return_dispatched: 'Return Dispatched', returned: 'Returned',
+          };
           const currentIdx = detailModal.status === 'rejected' ? -1 : allSteps.indexOf(detailModal.status);
           return (
             <div>
@@ -375,26 +424,27 @@ export default function Transfers() {
                   if (detailModal.status === 'rejected') color = 'default';
                   else if (i < currentIdx) color = 'green';
                   else if (i === currentIdx) color = 'blue';
-                  return <Tag key={step} color={color} style={{ margin: 0, fontSize: 11 }}>{stepLabels[step]}</Tag>;
+                  return <Tag key={step} color={color} style={{ margin: 0, fontSize: 11 }}>{stepLabelsMap[step]}</Tag>;
                 })}
                 {detailModal.status === 'rejected' && <Tag color="red" style={{ margin: 0, fontSize: 11 }}>Rejected</Tag>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13 }}>
                 <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Machine</span><br /><strong style={{ fontFamily: 'monospace' }}>{detailModal.machine?.machineId}</strong></div>
-                <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Status</span><br /><Tag color={statusColor[detailModal.status]}>{statusLabels[detailModal.status]}</Tag></div>
+                <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Status</span><br /><Tag color={statusColor[detailModal.status]}>{statusLabels[detailModal.status] || detailModal.status}</Tag></div>
                 <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>From</span><br />{detailModal.fromFacility} / {detailModal.fromFloor}{detailModal.fromSection ? ` / ${detailModal.fromSection}` : ''}{detailModal.fromLine ? ` / L${detailModal.fromLine}` : ''}</div>
                 <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>To</span><br />{detailModal.toFacility} / {detailModal.toFloor}{detailModal.toSection ? ` / ${detailModal.toSection}` : ''}{detailModal.toLine ? ` / L${detailModal.toLine}` : ''}</div>
                 <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Basis</span><br /><Tag color={detailModal.basis === 'permanent' ? 'purple' : detailModal.basis === 'internal' ? 'gold' : 'cyan'} style={{ margin: 0 }}>{detailModal.basis?.toUpperCase()}</Tag></div>
                 {detailModal.basis === 'loan' && detailModal.expectedReturnDate && (
                   <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Expected Return</span><br />
                     {dayjs(detailModal.expectedReturnDate).format('DD MMM YYYY')}
-                    {dayjs(detailModal.expectedReturnDate).isBefore(dayjs(), 'day') && ['received', 'return_requested'].includes(detailModal.status) && <Tag color="red" style={{ marginLeft: 6, fontSize: 10 }}>OVERDUE</Tag>}
+                    {dayjs(detailModal.expectedReturnDate).isBefore(dayjs(), 'day') && loanActiveStatuses.includes(detailModal.status) && <Tag color="red" style={{ marginLeft: 6, fontSize: 10 }}>OVERDUE</Tag>}
                   </div>
                 )}
                 <div style={{ gridColumn: '1 / -1' }}><span style={{ color: '#8c8c8c', fontSize: 11 }}>Reason</span><br />{detailModal.reason}</div>
                 {detailModal.rejectionReason && <div style={{ gridColumn: '1 / -1', padding: 8, background: '#fff2f0', borderRadius: 6, border: '1px solid #ffccc7' }}><span style={{ color: '#ff4d4f', fontSize: 11, fontWeight: 600 }}>Rejection Reason</span><br />{detailModal.rejectionReason}</div>}
                 {detailModal.returnRequestedAt && <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Return Requested</span><br />{dayjs(detailModal.returnRequestedAt).format('DD MMM YY HH:mm')}</div>}
-                {detailModal.returnApprovedAt && <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Return Approved</span><br />{dayjs(detailModal.returnApprovedAt).format('DD MMM YY HH:mm')}</div>}
+                {detailModal.returnApprovedAt && <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Return 1st Approved</span><br />{dayjs(detailModal.returnApprovedAt).format('DD MMM YY HH:mm')}</div>}
+                {detailModal.returnSecondApprovedAt && <div><span style={{ color: '#8c8c8c', fontSize: 11 }}>Return 2nd Approved</span><br />{dayjs(detailModal.returnSecondApprovedAt).format('DD MMM YY HH:mm')}</div>}
               </div>
             </div>
           );

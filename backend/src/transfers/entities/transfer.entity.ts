@@ -13,8 +13,14 @@ export enum TransferStatus {
   SECOND_APPROVED = 'second_approved',
   DISPATCHED = 'dispatched',
   RECEIVED = 'received',
+  CONDITION_CONFIRMED = 'condition_confirmed',
+  COMPLETED = 'completed',
   REJECTED = 'rejected',
   RETURN_REQUESTED = 'return_requested',
+  RETURN_FIRST_APPROVED = 'return_first_approved',
+  RETURN_SECOND_APPROVED = 'return_second_approved',
+  RETURN_DISPATCHED = 'return_dispatched',
+  RETURNED = 'returned',
   RETURN_APPROVED = 'return_approved',
 }
 
@@ -85,6 +91,24 @@ export class Transfer {
   receivedBy: number;
 
   @Column({ nullable: true })
+  receivedByName: string;
+
+  @Column({ nullable: true })
+  conditionConfirmedBy: number;
+
+  @Column({ nullable: true })
+  conditionConfirmedByName: string;
+
+  @Column({ nullable: true })
+  conditionNote: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  conditionConfirmedAt: Date;
+
+  @Column({ nullable: true })
+  dispatchedByName: string;
+
+  @Column({ nullable: true })
   rejectedBy: number;
 
   @Column({ nullable: true })
@@ -119,4 +143,34 @@ export class Transfer {
 
   @Column({ type: 'timestamp', nullable: true })
   receivedAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt: Date;
+
+  @Column({ nullable: true })
+  returnSecondApprovedBy: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnSecondApprovedAt: Date;
+
+  @Column({ nullable: true, unique: true })
+  returnChalanNo: string;
+
+  @Column({ nullable: true })
+  returnDispatchedBy: number;
+
+  @Column({ nullable: true })
+  returnDispatchedByName: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnDispatchedAt: Date;
+
+  @Column({ nullable: true })
+  returnReceivedBy: number;
+
+  @Column({ nullable: true })
+  returnReceivedByName: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnReceivedAt: Date;
 }

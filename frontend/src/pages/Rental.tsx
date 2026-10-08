@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Modal, Form, Input, InputNumber, Select, Tag, Space, Typography, message, Tabs, Card, Row, Col, Statistic, Badge, Descriptions, Popconfirm, AutoComplete } from 'antd';
-import { PlusOutlined, CheckOutlined, EyeOutlined, RollbackOutlined, ToolOutlined, DeleteOutlined, FilePdfOutlined, BellOutlined } from '@ant-design/icons';
+import { PlusOutlined, CheckOutlined, EyeOutlined, RollbackOutlined, ToolOutlined, DeleteOutlined, BellOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
@@ -9,11 +9,13 @@ import { getFullName, machineTypeMap } from '../utils/machineTypes';
 const statusLabels: Record<string, string> = {
   requested: 'Requested', approved: 'Approved', denied: 'Denied', received: 'Received',
   condition_confirmed: 'Condition OK', in_use: 'In Use', return_requested: 'Return Requested',
+  return_first_approved: 'Return 1st Approved (HoD)', return_second_approved: 'Return 2nd Approved (Admin)',
   return_approved: 'Return Approved', returned: 'Returned',
 };
 const statusColor: Record<string, string> = {
   requested: 'blue', approved: 'cyan', denied: 'red', received: 'geekblue',
   condition_confirmed: 'purple', in_use: 'green', return_requested: 'orange',
+  return_first_approved: 'gold', return_second_approved: 'lime',
   return_approved: 'lime', returned: 'default',
 };
 
@@ -23,9 +25,17 @@ const factoryOptions = [
   { value: 'ASL', label: 'ASL' },
 ];
 
+const facilityNames: Record<string, string> = {
+  AGL: 'Ananta Garments Ltd.',
+  AJL: 'Ananta Jeanswear Ltd.',
+  ABM: 'ABM Fashion Ltd.',
+  ASL: 'Ananta Sportswear Ltd.',
+};
+
 export default function Rental() {
   const [rentals, setRentals] = useState<any[]>([]);
   const [activeRentals, setActiveRentals] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [approveModal, setApproveModal] = useState<{ id: number; action: 'approve' | 'deny' } | null>(null);
@@ -52,9 +62,11 @@ export default function Rental() {
     Promise.all([
       api.get('/rental', { params }),
       api.get('/rental/active', { params }),
-    ]).then(([allRes, activeRes]) => {
+      api.get('/rental/history'),
+    ]).then(([allRes, activeRes, histRes]) => {
       setRentals(allRes.data);
       setActiveRentals(activeRes.data);
+      setHistory(histRes.data);
       setLoading(false);
     });
   };
@@ -99,7 +111,13 @@ export default function Rental() {
 
   const handleApproveReturn = async (id: number) => {
     await api.put(`/rental/${id}/approve-return`);
-    message.success('Return approved — security notified');
+    message.success('Return 1st approved (HoD) — pending Admin approval');
+    load();
+  };
+
+  const handleSecondApproveReturn = async (id: number) => {
+    await api.put(`/rental/${id}/second-approve-return`);
+    message.success('Return 2nd approved (Admin) — security notified for return');
     load();
   };
 
@@ -143,69 +161,69 @@ export default function Rental() {
     loadSpareParts(rental.id);
   };
 
-  const printSummary = (rental: any) => {
+  const printChalan = (rental: any, type: 'receiving' | 'outing') => {
     const pw = window.open('', '_blank');
     if (!pw) return;
+    const isReceiving = type === 'receiving';
+    const docNo = isReceiving ? rental.receivingDocNo : rental.outingDocNo;
+    const companyName = facilityNames[rental.factory] || rental.factory || 'Ananta Group';
     const fmt = (d: string) => d ? dayjs(d).format('DD MMM YYYY HH:mm') : 'N/A';
-    pw.document.write(`<html><head><title>Rental Summary - ${getFullName(rental.machineType)}</title>
+    const dateStr = isReceiving ? fmt(rental.receivedAt) : fmt(rental.returnedAt);
+    pw.document.write(`<html><head><title>${isReceiving ? 'Receiving' : 'Outing'} Chalan - ${docNo}</title>
 <style>
-body{font-family:Arial,sans-serif;padding:40px;max-width:750px;margin:0 auto}
-h1{text-align:center;font-size:20px;border-bottom:2px solid #000;padding-bottom:8px}
-.sub{text-align:center;font-size:13px;color:#555;margin-bottom:24px}
-table{width:100%;border-collapse:collapse;margin:16px 0}
-th,td{border:1px solid #ccc;padding:8px 12px;text-align:left;font-size:13px}
-th{background:#f5f5f5;width:35%}
-.section-title{background:#e8e8e8;font-weight:bold;text-align:center;font-size:13px}
-.two-col{display:flex;gap:24px;margin-top:24px}
-.two-col .col{flex:1}
-.footer{margin-top:48px;display:flex;justify-content:space-between}
-.sig{border-top:1px solid #000;width:180px;text-align:center;padding-top:4px;font-size:12px}
-@media print{body{padding:20px}}
+body{font-family:Arial,sans-serif;padding:30px;max-width:750px;margin:0 auto}
+.header{text-align:center;margin-bottom:20px}
+.company{font-size:22px;font-weight:bold;margin-bottom:2px}
+.doc-title{font-size:16px;font-weight:bold;border:2px solid #000;display:inline-block;padding:4px 20px;margin:8px 0}
+.meta{display:flex;justify-content:space-between;margin:12px 0;font-size:13px}
+table{width:100%;border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #333;padding:7px 10px;text-align:left;font-size:12px}
+th{background:#f0f0f0;font-weight:600}
+.section-title{background:#e0e0e0;font-weight:bold;text-align:center;font-size:12px}
+.footer{margin-top:40px;display:flex;justify-content:space-between}
+.sig{width:160px;text-align:center;font-size:11px}
+.sig-line{border-top:1px solid #000;margin-top:50px;padding-top:4px}
+@media print{body{padding:15px}}
 </style></head><body>
-<h1>RENTAL SUMMARY REPORT</h1>
-<div class="sub">Receiving Doc: <strong>${rental.receivingDocNo || 'N/A'}</strong> &nbsp;&nbsp;|&nbsp;&nbsp; Outing Doc: <strong>${rental.outingDocNo || 'N/A'}</strong></div>
+<div class="header">
+<div class="company">${companyName}</div>
+<div style="font-size:12px;color:#555">Machine Tracking System</div>
+<div class="doc-title">${isReceiving ? 'MACHINE RECEIVING CHALAN' : 'MACHINE OUTING CHALAN'}</div>
+</div>
+<div class="meta">
+<div><strong>Chalan No:</strong> ${docNo || 'N/A'}</div>
+<div><strong>Date:</strong> ${dateStr}</div>
+<div><strong>Type:</strong> ${isReceiving ? 'Rental Receive' : 'Rental Return'}</div>
+</div>
 <table>
-<tr><td class="section-title" colspan="2">Machine Information</td></tr>
-<tr><th>Machine Type</th><td>${getFullName(rental.machineType)}</td></tr>
-<tr><th>Model</th><td>${rental.model || 'N/A'}</td></tr>
-<tr><th>Serial No</th><td>${rental.serialNo || 'N/A'}</td></tr>
-<tr><th>Supplier</th><td>${rental.supplier || 'N/A'}</td></tr>
-<tr><td class="section-title" colspan="2">Location</td></tr>
-<tr><th>Factory</th><td>${rental.factory || 'N/A'}</td></tr>
-<tr><th>Floor</th><td>${rental.floor || 'N/A'}</td></tr>
-<tr><th>Section</th><td>${rental.section || 'N/A'}</td></tr>
-<tr><th>Line</th><td>${rental.line || 'N/A'}</td></tr>
-<tr><th>Estimated Duration</th><td>${rental.estimatedDays || 0} days</td></tr>
-<tr><td class="section-title" colspan="2">Request & Approval</td></tr>
-<tr><th>Requested By</th><td>${rental.requestedByName || 'N/A'}</td></tr>
-<tr><th>Requested At</th><td>${fmt(rental.requestedAt)}</td></tr>
-<tr><th>Justification</th><td>${rental.justification || 'N/A'}</td></tr>
-<tr><th>Approved By</th><td>${rental.approvedByName || 'N/A'}</td></tr>
-<tr><th>Approved At</th><td>${fmt(rental.approvedAt)}</td></tr>
-${rental.approvalJustification ? `<tr><th>Approval Note</th><td>${rental.approvalJustification}</td></tr>` : ''}
-<tr><td class="section-title" colspan="2">Receiving Details</td></tr>
-<tr><th>Receiving Doc No</th><td>${rental.receivingDocNo || 'N/A'}</td></tr>
-<tr><th>Received By (Security)</th><td>${rental.receivedBySecurityName || 'N/A'}</td></tr>
-<tr><th>Received At</th><td>${fmt(rental.receivedAt)}</td></tr>
-<tr><td class="section-title" colspan="2">Condition Check</td></tr>
-<tr><th>Confirmed By</th><td>${rental.conditionConfirmedByName || 'N/A'}</td></tr>
-<tr><th>Condition Note</th><td>${rental.conditionNote || 'N/A'}</td></tr>
-<tr><th>Confirmed At</th><td>${fmt(rental.conditionConfirmedAt)}</td></tr>
-<tr><td class="section-title" colspan="2">Return Details</td></tr>
-${rental.returnNotifiedByName ? `<tr><th>Return Notified By</th><td>${rental.returnNotifiedByName}</td></tr>
-<tr><th>Notified At</th><td>${fmt(rental.returnNotifiedAt)}</td></tr>` : ''}
-${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.returnRequestedByName}</td></tr>
-<tr><th>Requested At</th><td>${fmt(rental.returnRequestedAt)}</td></tr>` : ''}
-<tr><th>Outing Doc No</th><td>${rental.outingDocNo || 'N/A'}</td></tr>
-<tr><th>Return Approved By</th><td>${rental.returnApprovedByName || 'N/A'}</td></tr>
-<tr><th>Return Approved At</th><td>${fmt(rental.returnApprovedAt)}</td></tr>
-<tr><th>Returned By (Security)</th><td>${rental.returnConfirmedByName || 'N/A'}</td></tr>
-<tr><th>Returned At</th><td>${fmt(rental.returnedAt)}</td></tr>
+<tr><td class="section-title" colspan="4">Machine Details</td></tr>
+<tr><th>Machine Type</th><td>${getFullName(rental.machineType)}</td><th>Model</th><td>${rental.model || 'N/A'}</td></tr>
+<tr><th>Serial No</th><td>${rental.serialNo || 'N/A'}</td><th>Supplier</th><td>${rental.supplier || 'N/A'}</td></tr>
+<tr><td class="section-title" colspan="4">Location & Duration</td></tr>
+<tr><th>Factory</th><td>${rental.factory || 'N/A'}</td><th>Floor</th><td>${rental.floor || 'N/A'}</td></tr>
+<tr><th>Section</th><td>${rental.section || 'N/A'}</td><th>Line</th><td>${rental.line || 'N/A'}</td></tr>
+<tr><th>Estimated Duration</th><td>${rental.estimatedDays || 0} days</td><th>Justification</th><td>${rental.justification || 'N/A'}</td></tr>
+<tr><td class="section-title" colspan="4">Approval Details</td></tr>
+<tr><th>Requested By</th><td>${rental.requestedByName || 'N/A'}</td><th>Requested At</th><td>${fmt(rental.requestedAt)}</td></tr>
+<tr><th>Approved By</th><td>${rental.approvedByName || 'N/A'}</td><th>Approved At</th><td>${fmt(rental.approvedAt)}</td></tr>
+${rental.approvalJustification ? `<tr><th>Approval Note</th><td colspan="3">${rental.approvalJustification}</td></tr>` : ''}
+${isReceiving ? `
+<tr><td class="section-title" colspan="4">Receiving Details</td></tr>
+<tr><th>Receiving Chalan No</th><td>${rental.receivingDocNo || 'N/A'}</td><th>Security Officer</th><td>${rental.receivedBySecurityName || 'N/A'}</td></tr>
+<tr><th>Received At</th><td colspan="3">${fmt(rental.receivedAt)}</td></tr>
+` : `
+<tr><td class="section-title" colspan="4">Return Details</td></tr>
+<tr><th>Receiving Chalan No</th><td>${rental.receivingDocNo || 'N/A'}</td><th>Outing Chalan No</th><td>${rental.outingDocNo || 'N/A'}</td></tr>
+<tr><th>Return Requested By</th><td>${rental.returnRequestedByName || 'N/A'}</td><th>Return Approved By</th><td>${rental.returnApprovedByName || 'N/A'}</td></tr>
+<tr><th>Condition Note</th><td>${rental.conditionNote || 'N/A'}</td><th>Condition By</th><td>${rental.conditionConfirmedByName || 'N/A'}</td></tr>
+<tr><th>Security Officer</th><td>${rental.returnConfirmedByName || 'N/A'}</td><th>Returned At</th><td>${fmt(rental.returnedAt)}</td></tr>
+`}
 </table>
 <div class="footer">
-<div class="sig">Requested By</div>
-<div class="sig">Approved By</div>
-<div class="sig">Security Officer</div>
+<div class="sig"><div class="sig-line">Requested By</div></div>
+<div class="sig"><div class="sig-line">Approved By (HoD)</div></div>
+<div class="sig"><div class="sig-line">Security Gate</div></div>
+<div class="sig"><div class="sig-line">${isReceiving ? 'Received By' : 'Returned By'}</div></div>
 </div>
 <script>window.onload=function(){window.print();}<\/script>
 </body></html>`);
@@ -214,7 +232,7 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
 
   const requestedRentals = rentals.filter((r) => r.status === 'requested');
   const activeCount = rentals.filter((r) => ['approved', 'received', 'condition_confirmed', 'in_use'].includes(r.status)).length;
-  const returnPending = rentals.filter((r) => r.status === 'return_requested');
+  const returnPending = rentals.filter((r) => ['return_requested', 'return_first_approved', 'return_second_approved'].includes(r.status));
 
   const toAutoOpts = (arr: string[]) => arr.map((v) => ({ value: v, label: v }));
   const machineTypeAutoOpts = () => {
@@ -264,13 +282,19 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
             <Tag color="orange" icon={<BellOutlined />}>{r.returnNotifiedByName || 'Line Chief'} requested return</Tag>
           )}
           {r.status === 'return_requested' && isSuperAdmin && (
-            <Button size="small" type="primary" onClick={() => handleApproveReturn(r.id)}>Approve Return</Button>
+            <Button size="small" type="primary" onClick={() => handleApproveReturn(r.id)}>1st Approve Return</Button>
+          )}
+          {r.status === 'return_first_approved' && (user?.role === 'admin' || isSuperAdmin) && (
+            <Button size="small" type="primary" style={{ background: '#13c2c2', borderColor: '#13c2c2' }} onClick={() => handleSecondApproveReturn(r.id)}>2nd Approve Return</Button>
           )}
           {['received', 'condition_confirmed', 'in_use'].includes(r.status) && (
             <Button size="small" icon={<ToolOutlined />} onClick={() => openSpareParts(r)}>Parts</Button>
           )}
-          {r.status === 'returned' && isSuperAdmin && (
-            <Button size="small" icon={<FilePdfOutlined />} onClick={() => printSummary(r)}>Summary</Button>
+          {r.receivingDocNo && (
+            <Button size="small" icon={<PrinterOutlined />} onClick={() => printChalan(r, 'receiving')}>RCV</Button>
+          )}
+          {r.outingDocNo && (
+            <Button size="small" icon={<PrinterOutlined />} onClick={() => printChalan(r, 'outing')}>OUT</Button>
           )}
         </Space>
       ),
@@ -297,6 +321,27 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
         <Space size={4}>
           <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setDetailModal(r)} />
           <Button size="small" type="text" icon={<ToolOutlined />} onClick={() => openSpareParts(r)} />
+        </Space>
+      ),
+    },
+  ];
+
+  const historyColumns: any[] = [
+    { title: 'Machine Type', dataIndex: 'machineType', key: 'type', render: (v: string) => getFullName(v) },
+    { title: 'Model', dataIndex: 'model', key: 'model', render: (v: string) => v || '—' },
+    { title: 'Factory', dataIndex: 'factory', key: 'factory', render: (v: string) => v ? <Tag>{v}</Tag> : '—' },
+    { title: 'Supplier', dataIndex: 'supplier', key: 'supplier', render: (v: string) => v || '—' },
+    { title: 'Receiving Chalan', dataIndex: 'receivingDocNo', key: 'rcv', render: (v: string) => v || '—' },
+    { title: 'Outing Chalan', dataIndex: 'outingDocNo', key: 'out', render: (v: string) => v || '—' },
+    { title: 'Received', dataIndex: 'receivedAt', key: 'rcvDate', render: (v: string) => v ? <span style={{ fontSize: 12 }}>{dayjs(v).format('DD MMM YY')}</span> : '—' },
+    { title: 'Returned', dataIndex: 'returnedAt', key: 'retDate', render: (v: string) => v ? <span style={{ fontSize: 12 }}>{dayjs(v).format('DD MMM YY')}</span> : '—' },
+    {
+      title: '', key: 'actions', width: 160,
+      render: (_: any, r: any) => (
+        <Space size={4}>
+          <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setDetailModal(r)} />
+          {r.receivingDocNo && <Button size="small" icon={<PrinterOutlined />} onClick={() => printChalan(r, 'receiving')}>RCV</Button>}
+          {r.outingDocNo && <Button size="small" icon={<PrinterOutlined />} onClick={() => printChalan(r, 'outing')}>OUT</Button>}
         </Space>
       ),
     },
@@ -343,6 +388,11 @@ ${rental.returnRequestedByName ? `<tr><th>Return Requested By</th><td>${rental.r
               key: 'active',
               label: <span>Active Machines <Badge count={activeRentals.length} style={{ backgroundColor: '#52c41a', marginLeft: 4 }} size="small" /></span>,
               children: <Table dataSource={activeRentals} columns={activeColumns} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20, size: 'small' }} scroll={{ x: 900 }} />,
+            },
+            {
+              key: 'history',
+              label: <span>Document History <Badge count={history.length} style={{ backgroundColor: '#8c8c8c', marginLeft: 4 }} size="small" /></span>,
+              children: <Table dataSource={history} columns={historyColumns} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20, size: 'small' }} scroll={{ x: 800 }} />,
             },
           ]}
         />

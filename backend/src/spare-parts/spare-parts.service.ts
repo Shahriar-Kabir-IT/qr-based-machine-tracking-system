@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, ILike } from 'typeorm';
+import { Repository, Not, ILike, In } from 'typeorm';
 import { SparePartRequest, SparePartStatus } from './entities/spare-part.entity';
 import { SparePartCatalog } from './entities/spare-part-catalog.entity';
 
@@ -17,6 +17,14 @@ export class SparePartsService {
     return this.sparePartsRepo.find({ relations: { machine: true }, order: { requestedAt: 'DESC' } });
   }
 
+  async findPending(): Promise<SparePartRequest[]> {
+    return this.sparePartsRepo.find({
+      where: { status: SparePartStatus.PENDING },
+      relations: { machine: true },
+      order: { requestedAt: 'ASC' },
+    });
+  }
+
   async findOne(id: number): Promise<SparePartRequest | null> {
     return this.sparePartsRepo.findOne({ where: { id }, relations: { machine: true } });
   }
@@ -26,12 +34,23 @@ export class SparePartsService {
     return this.sparePartsRepo.save(req);
   }
 
-  async approve(id: number, userId: number): Promise<SparePartRequest> {
+  async approve(id: number, userId: number, approverName: string): Promise<SparePartRequest> {
     const r = await this.findOne(id);
     if (!r || r.status !== SparePartStatus.PENDING) throw new BadRequestException('Not in Pending status');
     r.status = SparePartStatus.APPROVED;
     r.approvedBy = userId;
+    r.approverName = approverName;
     r.approvedAt = new Date();
+    return this.sparePartsRepo.save(r);
+  }
+
+  async reject(id: number, userId: number, reason: string): Promise<SparePartRequest> {
+    const r = await this.findOne(id);
+    if (!r || r.status !== SparePartStatus.PENDING) throw new BadRequestException('Not in Pending status');
+    r.status = SparePartStatus.REJECTED;
+    r.rejectedBy = userId;
+    r.rejectionReason = reason;
+    r.rejectedAt = new Date();
     return this.sparePartsRepo.save(r);
   }
 
@@ -135,6 +154,18 @@ export class SparePartsService {
 
     const totalCatalog = await this.catalogRepo.count();
 
-    return { statusCounts, topParts, topMachines, byMechanic, monthlyTrend, catalogStats, totalCatalog };
+    const monthlyConsumption = await this.sparePartsRepo.createQueryBuilder('r')
+      .select("TO_CHAR(r.approvedAt, 'YYYY-MM')", 'month')
+      .addSelect('r.part', 'part')
+      .addSelect('SUM(r.qty)', 'totalQty')
+      .addSelect('COUNT(*)', 'count')
+      .where('r.status IN (:...statuses)', { statuses: ['approved', 'store_issued', 'installed'] })
+      .groupBy("TO_CHAR(r.approvedAt, 'YYYY-MM')")
+      .addGroupBy('r.part')
+      .orderBy("TO_CHAR(r.approvedAt, 'YYYY-MM')", 'DESC')
+      .addOrderBy('SUM(r.qty)', 'DESC')
+      .getRawMany();
+
+    return { statusCounts, topParts, topMachines, byMechanic, monthlyTrend, catalogStats, totalCatalog, monthlyConsumption };
   }
 }

@@ -20,7 +20,7 @@ export class UsersService {
       where: { role: UserRole.MECHANIC },
       order: { facility: 'ASC', floor: 'ASC', name: 'ASC' },
     });
-    return mechanics.map(({ id, username, name, facility, floor }) => ({ id, username, name, facility, floor }));
+    return mechanics.map(({ id, username, name, facility, floor, lines }) => ({ id, username, name, facility, floor, lines }));
   }
 
   async findOne(id: number): Promise<User | null> {

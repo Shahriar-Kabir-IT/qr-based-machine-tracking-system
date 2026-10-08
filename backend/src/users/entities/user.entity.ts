@@ -8,6 +8,7 @@ export enum UserRole {
   MECHANIC = 'mechanic',
   SYSTEM_ADMIN = 'system_admin',
   SECURITY = 'security',
+  TECHNICAL_MANAGER = 'technical_manager',
 }
 
 @Entity('users')
@@ -32,6 +33,9 @@ export class User {
 
   @Column({ nullable: true })
   floor: string;
+
+  @Column({ nullable: true })
+  lines: string;
 
   @CreateDateColumn()
   createdAt: Date;

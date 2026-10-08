@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { MaintenanceService } from './maintenance.service';
-import { JwtAuthGuard, RolesGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard, RolesGuard, Roles } from '../auth/jwt-auth.guard';
 import { UserRole } from '../users/entities/user.entity';
 
 @Controller('api/maintenance')
@@ -32,8 +32,9 @@ export class MaintenanceController {
   }
 
   @Post()
-  create(@Body() body: any) {
-    return this.maintenanceService.create(body);
+  @Roles(UserRole.MECHANIC, UserRole.SUPER_ADMIN)
+  create(@Body() body: any, @Request() req: any) {
+    return this.maintenanceService.create({ ...body, performedBy: req.user.name || req.user.username });
   }
 
   @Put(':id/status')

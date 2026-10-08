@@ -18,8 +18,10 @@ export class DowntimeController {
 
   @Get('active')
   findActive(@Request() req: any) {
-    if (req.user.role === UserRole.MECHANIC && req.user.facility) {
-      return this.downtimeService.findActive(req.user.facility, req.user.floor);
+    if (req.user.role === UserRole.MECHANIC || req.user.role === UserRole.LINE_CHIEF) {
+      if (!req.user.facility || !req.user.floor || !req.user.lines) return [];
+      const userLines = req.user.lines.split(',').map((l: string) => l.trim());
+      return this.downtimeService.findActive(req.user.facility, req.user.floor, userLines);
     }
     return this.downtimeService.findActive();
   }

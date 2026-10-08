@@ -13,6 +13,11 @@ export class SparePartsController {
     return this.sparePartsService.findAll();
   }
 
+  @Get('pending')
+  findPending() {
+    return this.sparePartsService.findPending();
+  }
+
   @Get('catalog/search')
   searchCatalog(@Query('q') q?: string, @Query('machineType') machineType?: string) {
     return this.sparePartsService.searchCatalog(q, machineType);
@@ -45,13 +50,23 @@ export class SparePartsController {
 
   @Post()
   create(@Body() body: any, @Request() req: any) {
-    return this.sparePartsService.create({ ...body, requestedByUserId: req.user.id });
+    return this.sparePartsService.create({
+      ...body,
+      requestedByUserId: req.user.id,
+      requestedBy: body.requestedBy || req.user.name || req.user.username,
+    });
   }
 
   @Put(':id/approve')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.TECHNICAL_MANAGER)
   approve(@Param('id') id: number, @Request() req: any) {
-    return this.sparePartsService.approve(id, req.user.id);
+    return this.sparePartsService.approve(id, req.user.id, req.user.name || req.user.username);
+  }
+
+  @Put(':id/reject')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.TECHNICAL_MANAGER)
+  reject(@Param('id') id: number, @Body() body: { reason: string }, @Request() req: any) {
+    return this.sparePartsService.reject(id, req.user.id, body.reason);
   }
 
   @Put(':id/store-issue')

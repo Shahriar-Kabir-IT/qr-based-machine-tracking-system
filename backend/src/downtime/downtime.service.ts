@@ -13,32 +13,34 @@ export class DowntimeService {
     private machinesService: MachinesService,
   ) {}
 
-  async findAll(facility?: string, floor?: string): Promise<DowntimeRecord[]> {
+  async findAll(facility?: string, floor?: string, lines?: string[]): Promise<DowntimeRecord[]> {
     const records = await this.downtimeRepo.find({ relations: { machine: true }, order: { reportedAt: 'DESC' } });
-    if (facility || floor) {
+    if (facility || floor || (lines && lines.length)) {
       return records.filter((r) => {
         const m = r.machine;
         if (!m) return false;
         if (facility && m.currentFacility !== facility && m.facility !== facility) return false;
         if (floor && m.currentFloor !== floor && m.floor !== floor) return false;
+        if (lines && lines.length && !lines.includes(m.line || '')) return false;
         return true;
       });
     }
     return records;
   }
 
-  async findActive(facility?: string, floor?: string): Promise<DowntimeRecord[]> {
+  async findActive(facility?: string, floor?: string, lines?: string[]): Promise<DowntimeRecord[]> {
     const records = await this.downtimeRepo.find({
       where: { status: In([DowntimeStatus.REPORTED, DowntimeStatus.ACKNOWLEDGED, DowntimeStatus.REPAIR_DONE]) },
       relations: { machine: true },
       order: { reportedAt: 'DESC' },
     });
-    if (facility || floor) {
+    if (facility || floor || (lines && lines.length)) {
       return records.filter((r) => {
         const m = r.machine;
         if (!m) return false;
         if (facility && m.currentFacility !== facility && m.facility !== facility) return false;
         if (floor && m.currentFloor !== floor && m.floor !== floor) return false;
+        if (lines && lines.length && !lines.includes(m.line || '')) return false;
         return true;
       });
     }

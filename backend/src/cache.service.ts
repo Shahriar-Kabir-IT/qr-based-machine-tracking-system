@@ -6,7 +6,7 @@ export class CacheService implements OnModuleDestroy {
   private redis: Redis;
 
   constructor() {
-    this.redis = new Redis({ host: '127.0.0.1', port: 6379, lazyConnect: true });
+    this.redis = new Redis({ host: '127.0.0.1', port: 6379, lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false });
     this.redis.connect().catch(() => {
       console.warn('Redis not available — caching disabled');
     });

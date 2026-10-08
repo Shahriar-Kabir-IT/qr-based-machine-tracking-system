@@ -12,7 +12,7 @@ export class MachinesService {
     private cache: CacheService,
   ) {}
 
-  async findAll(query: { search?: string; floor?: string; machineType?: string; status?: string; facility?: string; page?: number; limit?: number }) {
+  async findAll(query: { search?: string; floor?: string; machineType?: string; status?: string; facility?: string; lines?: string; page?: number; limit?: number }) {
     const cacheKey = `machines:${JSON.stringify(query)}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
@@ -26,7 +26,11 @@ export class MachinesService {
       ]);
 
     if (query.facility) qb = qb.andWhere('(m.currentFacility = :fac OR m.facility = :fac)', { fac: query.facility });
-    if (query.floor) qb = qb.andWhere('m.floor = :floor', { floor: query.floor });
+    if (query.floor) qb = qb.andWhere('(m.currentFloor = :floor OR m.floor = :floor)', { floor: query.floor });
+    if (query.lines) {
+      const lineArr = query.lines.split(',').map(l => l.trim()).filter(Boolean);
+      if (lineArr.length) qb = qb.andWhere('m.line IN (:...lineArr)', { lineArr });
+    }
     if (query.machineType) qb = qb.andWhere('m.machineType = :machineType', { machineType: query.machineType });
     if (query.status) qb = qb.andWhere('m.status = :status', { status: query.status });
     if (query.search) {
@@ -98,32 +102,18 @@ export class MachinesService {
     return `${prefix}-${String(seq).padStart(5, '0')}`;
   }
 
-  async firstApprove(id: number, approvedBy: number): Promise<Machine> {
+  async approve(id: number, approvedBy: number): Promise<Machine> {
     const machine = await this.findOne(id);
     if (!machine) throw new BadRequestException('Machine not found');
-    if (machine.status !== MachineStatus.PENDING_SUPER_ADMIN) {
-      throw new BadRequestException('Machine is not pending super admin approval');
+    if (![MachineStatus.PENDING_SUPER_ADMIN, MachineStatus.PENDING_ADMIN].includes(machine.status)) {
+      throw new BadRequestException('Machine is not pending approval');
     }
-    const assetId = await this.generateAssetId(machine.section || 'SE', machine.facility);
-    machine.assetId = assetId;
-    machine.status = MachineStatus.PENDING_ADMIN;
-    machine.firstApprovedBy = approvedBy;
-    machine.firstApprovedAt = new Date();
-    const saved = await this.machinesRepo.save(machine);
-    await this.cache.invalidate('machines:*');
-    await this.cache.invalidate('dashboard:*');
-    return saved;
-  }
-
-  async secondApprove(id: number, approvedBy: number): Promise<Machine> {
-    const machine = await this.findOne(id);
-    if (!machine) throw new BadRequestException('Machine not found');
-    if (machine.status !== MachineStatus.PENDING_ADMIN) {
-      throw new BadRequestException('Machine is not pending admin approval');
+    if (!machine.assetId) {
+      machine.assetId = await this.generateAssetId(machine.section || 'SE', machine.facility);
     }
     machine.status = MachineStatus.ACTIVE;
-    machine.secondApprovedBy = approvedBy;
-    machine.secondApprovedAt = new Date();
+    machine.firstApprovedBy = approvedBy;
+    machine.firstApprovedAt = new Date();
     const saved = await this.machinesRepo.save(machine);
     await this.cache.invalidate('machines:*');
     await this.cache.invalidate('dashboard:*');
