@@ -3,6 +3,7 @@ import { Table, Button, Modal, Form, Input, Select, Tag, Space, Typography, mess
 import { PlusOutlined, FilterOutlined, EyeOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 const activityOptions = [
@@ -18,6 +19,7 @@ const factoryOptions = [
 ];
 
 export default function Maintenance() {
+  const { t } = useLang();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -121,7 +123,7 @@ export default function Maintenance() {
       <div className="mt-header">
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            Maintenance
+            {t('maintenance')}
             {selectedFactory && <Tag color="blue" style={{ marginLeft: 8, verticalAlign: 'middle' }}>{selectedFactory}</Tag>}
             {selectedFloor && <Tag color="geekblue" style={{ marginLeft: 4, verticalAlign: 'middle' }}>{selectedFloor}</Tag>}
           </Typography.Title>

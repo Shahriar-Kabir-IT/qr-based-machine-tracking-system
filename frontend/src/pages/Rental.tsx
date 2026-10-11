@@ -3,6 +3,7 @@ import { Table, Button, Modal, Form, Input, InputNumber, Select, Tag, Space, Typ
 import { PlusOutlined, CheckOutlined, EyeOutlined, RollbackOutlined, ToolOutlined, DeleteOutlined, BellOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 import { getFullName, machineTypeMap } from '../utils/machineTypes';
 
@@ -33,6 +34,7 @@ const facilityNames: Record<string, string> = {
 };
 
 export default function Rental() {
+  const { t } = useLang();
   const [rentals, setRentals] = useState<any[]>([]);
   const [activeRentals, setActiveRentals] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -350,7 +352,7 @@ ${isReceiving ? `
   return (
     <div style={{ padding: '16px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>Rental Machines</Typography.Title>
+        <Typography.Title level={4} style={{ margin: 0 }}>{t('rental')}</Typography.Title>
         <Space>
           {isSuperAdmin && (
             <Select

@@ -9,8 +9,8 @@ export class SparePartsController {
   constructor(private sparePartsService: SparePartsService) {}
 
   @Get()
-  findAll() {
-    return this.sparePartsService.findAll();
+  findAll(@Query('search') search?: string) {
+    return this.sparePartsService.findAll(search);
   }
 
   @Get('pending')

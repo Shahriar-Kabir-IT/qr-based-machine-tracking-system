@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 
 const { Header, Sider, Content } = Layout;
 
@@ -37,48 +38,49 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isUser, isMechanic, isLineChief, isSystemAdmin, isSecurity, isTechManager } = useAuth();
+  const { lang, toggle: toggleLang, t } = useLang();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   let menuItems;
   if (isSystemAdmin) {
     menuItems = [
-      { key: '/system', icon: <SettingOutlined />, label: 'System Admin' },
-      { key: '/users', icon: <TeamOutlined />, label: 'User Management' },
+      { key: '/system', icon: <SettingOutlined />, label: t('system_admin') },
+      { key: '/users', icon: <TeamOutlined />, label: t('user_management') },
     ];
   } else if (isSecurity) {
     menuItems = [
-      { key: '/security', icon: <DatabaseOutlined />, label: 'Security Dashboard' },
+      { key: '/security', icon: <DatabaseOutlined />, label: t('security_dashboard') },
     ];
   } else if (isTechManager) {
     menuItems = [
-      { key: '/tech-manager', icon: <BuildOutlined />, label: 'যন্ত্রাংশ অনুমোদন' },
+      { key: '/tech-manager', icon: <BuildOutlined />, label: t('spare_part_approval') },
     ];
   } else if (isMechanic) {
     menuItems = [
-      { key: '/mechanic', icon: <AlertOutlined />, label: 'Service Requests' },
-      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
+      { key: '/mechanic', icon: <AlertOutlined />, label: t('service_requests') },
+      { key: '/rental', icon: <ShopOutlined />, label: t('rental') },
     ];
   } else if (isLineChief) {
     menuItems = [
-      { key: '/line-chief', icon: <DatabaseOutlined />, label: 'My Machines' },
-      { key: '/line-chief/history', icon: <ThunderboltOutlined />, label: 'Service History' },
-      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
+      { key: '/line-chief', icon: <DatabaseOutlined />, label: t('my_machines') },
+      { key: '/line-chief/history', icon: <ThunderboltOutlined />, label: t('service_history') },
+      { key: '/rental', icon: <ShopOutlined />, label: t('rental') },
     ];
   } else if (isUser) {
     menuItems = [
-      { key: '/user-dashboard', icon: <AppstoreOutlined />, label: `${user?.facility || ''} Dashboard` },
-      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
+      { key: '/user-dashboard', icon: <AppstoreOutlined />, label: `${user?.facility || ''} ${t('dashboard')}` },
+      { key: '/rental', icon: <ShopOutlined />, label: t('rental') },
     ];
   } else {
     menuItems = [
-      { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
-      { key: '/inventory', icon: <DatabaseOutlined />, label: 'Inventory' },
-      { key: '/transfers', icon: <SwapOutlined />, label: 'Transfers' },
-      { key: '/downtime', icon: <ThunderboltOutlined />, label: 'Downtime' },
-      { key: '/maintenance', icon: <ToolOutlined />, label: 'Maintenance' },
-      { key: '/spare-parts', icon: <BuildOutlined />, label: 'Spare Parts' },
-      { key: '/rental', icon: <ShopOutlined />, label: 'Rental' },
-      { key: '/mechanic-kpi', icon: <DashboardOutlined />, label: 'Mechanic KPI' },
+      { key: '/', icon: <DashboardOutlined />, label: t('dashboard') },
+      { key: '/inventory', icon: <DatabaseOutlined />, label: t('inventory') },
+      { key: '/transfers', icon: <SwapOutlined />, label: t('transfers') },
+      { key: '/downtime', icon: <ThunderboltOutlined />, label: t('downtime') },
+      { key: '/maintenance', icon: <ToolOutlined />, label: t('maintenance') },
+      { key: '/spare-parts', icon: <BuildOutlined />, label: t('spare_parts') },
+      { key: '/rental', icon: <ShopOutlined />, label: t('rental') },
+      { key: '/mechanic-kpi', icon: <DashboardOutlined />, label: t('mechanic_kpi') },
     ];
   }
 
@@ -127,7 +129,7 @@ export default function AppLayout() {
         block
         style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'left', padding: '4px 0' }}
       >
-        Logout
+        {t('logout')}
       </Button>
     </div>
   );
@@ -185,9 +187,16 @@ export default function AppLayout() {
             </Typography.Text>
           </div>
           <div className="app-header-right">
+            <Button
+              size="small"
+              onClick={toggleLang}
+              style={{ fontWeight: 600, fontSize: 12, minWidth: 40 }}
+            >
+              {lang === 'en' ? 'বাং' : 'EN'}
+            </Button>
             <Avatar style={{ backgroundColor: '#141428' }} size="small" icon={<UserOutlined />} />
             <Button type="text" icon={<LogoutOutlined />} onClick={logout} size="small" style={{ color: '#8c8c8c' }}>
-              Logout
+              {t('logout')}
             </Button>
           </div>
         </Header>

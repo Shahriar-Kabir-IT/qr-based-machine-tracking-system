@@ -13,6 +13,7 @@ import {
   BuildOutlined,
 } from '@ant-design/icons';
 import api from '../api/client';
+import { useLang } from '../context/LanguageContext';
 
 interface Mechanic {
   id: number;
@@ -63,6 +64,7 @@ function formatDuration(minutes: number | null): string {
 }
 
 export default function MechanicKPI() {
+  const { t } = useLang();
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
   const [loadingMechanics, setLoadingMechanics] = useState(true);
 
@@ -161,7 +163,7 @@ export default function MechanicKPI() {
           <div>
             <Typography.Title level={4} style={{ margin: 0, fontSize: 'clamp(16px, 4vw, 20px)' }}>
               <DashboardOutlined style={{ marginRight: 8 }} />
-              Mechanic KPI
+              {t('mechanic_kpi')}
             </Typography.Title>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {!selectedFactory && 'Select a factory to begin'}

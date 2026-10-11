@@ -14,6 +14,9 @@ export class SparePartRequest {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ nullable: true, unique: true })
+  billNo: string;
+
   @Column()
   machineId: number;
 

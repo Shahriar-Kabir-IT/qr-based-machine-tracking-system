@@ -3,6 +3,7 @@ import { Table, Tag, Button, Modal, Form, Input, Typography, message } from 'ant
 import { CheckCircleOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 const statusColor: Record<string, string> = {
@@ -13,6 +14,7 @@ const statusLabel: Record<string, string> = {
 };
 
 export default function LineChiefHistory() {
+  const { t } = useLang();
   const { user } = useAuth();
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export default function LineChiefHistory() {
 
   return (
     <div style={{ padding: '16px 20px' }}>
-      <Typography.Title level={4} style={{ margin: '0 0 4px' }}>Service History</Typography.Title>
+      <Typography.Title level={4} style={{ margin: '0 0 4px' }}>{t('service_history')}</Typography.Title>
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 16 }}>
         {user?.facility} / {user?.floor} Floor
       </Typography.Text>

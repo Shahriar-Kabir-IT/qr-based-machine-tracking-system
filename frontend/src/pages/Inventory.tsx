@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { getMachineTypeDisplay, machineTypeOptions } from '../utils/machineTypes';
 
 const sectionOptions = [
@@ -92,6 +93,7 @@ export default function Inventory() {
   const [form] = Form.useForm();
   const [rejectForm] = Form.useForm();
   const { user, isSuperAdmin } = useAuth();
+  const { t } = useLang();
   const isAdminOnly = user?.role === 'admin';
   const [selectedFactory, setSelectedFactory] = useState<string | null>(isAdminOnly && user?.facility ? user.facility : null);
 
@@ -258,7 +260,7 @@ export default function Inventory() {
       <div className="inv-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            Machine Inventory
+            {t('inventory')}
             {selectedFactory && <Tag color="blue" style={{ marginLeft: 8, verticalAlign: 'middle' }}>{selectedFactory}</Tag>}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>

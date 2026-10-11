@@ -3,6 +3,7 @@ import { Table, Button, Modal, Form, Input, Typography, Tag, message, Card, Row,
 import { WarningOutlined, CheckCircleOutlined, EyeOutlined, ToolOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import QrScanner from '../components/QrScanner';
 
 const statusConfig: Record<string, { color: string; label: string }> = {
@@ -17,6 +18,7 @@ const statusConfig: Record<string, { color: string; label: string }> = {
 };
 
 export default function LineChiefDashboard() {
+  const { t } = useLang();
   const { user } = useAuth();
   const [machines, setMachines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +167,7 @@ export default function LineChiefDashboard() {
       <div className="lc-header">
         <div style={{ flex: 1, minWidth: 0 }}>
           <Typography.Title level={4} style={{ margin: 0, fontSize: 'clamp(16px, 4vw, 20px)' }}>
-            My Machines — {user?.facility}{user?.lines ? ` / Line ${user.lines}` : ''}
+            {t('my_machines')} — {user?.facility}{user?.lines ? ` / ${t('line')} ${user.lines}` : ''}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             Machines on your line. Report issues to send for servicing.

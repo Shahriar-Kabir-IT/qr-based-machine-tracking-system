@@ -28,7 +28,10 @@ export class TransfersController {
   }
 
   @Get('security')
-  findForSecurity() {
+  findForSecurity(@Request() req: any) {
+    if (req.user.role === UserRole.SECURITY && req.user.facility) {
+      return this.transfersService.findForSecurity(req.user.facility);
+    }
     return this.transfersService.findForSecurity();
   }
 
@@ -111,9 +114,9 @@ export class TransfersController {
   }
 
   @Put(':id/first-approve')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.USER)
   firstApprove(@Param('id') id: number, @Request() req: any) {
-    return this.transfersService.firstApprove(id, req.user.id);
+    return this.transfersService.firstApprove(id, req.user.id, req.user.role);
   }
 
   @Put(':id/second-approve')
@@ -132,6 +135,12 @@ export class TransfersController {
   @Roles(UserRole.SECURITY)
   receive(@Param('id') id: number, @Request() req: any) {
     return this.transfersService.receive(id, req.user.id, req.user.name || req.user.username);
+  }
+
+  @Put(':id/condition-confirm')
+  @Roles(UserRole.SUPER_ADMIN)
+  conditionConfirm(@Param('id') id: number, @Request() req: any) {
+    return this.transfersService.conditionConfirm(id, req.user.id, req.user.name || req.user.username);
   }
 
   @Put(':id/request-return')

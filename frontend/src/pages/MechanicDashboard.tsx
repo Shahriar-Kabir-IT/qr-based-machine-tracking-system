@@ -3,6 +3,7 @@ import { Card, Button, Tag, Typography, Modal, Form, Input, InputNumber, Select,
 import { CheckCircleOutlined, ClockCircleOutlined, ToolOutlined, WarningOutlined, BuildOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import QrScanner from '../components/QrScanner';
 
 
@@ -25,6 +26,7 @@ function LiveTimer({ since }: { since: string }) {
 }
 
 export default function MechanicDashboard() {
+  const { t } = useLang();
   const { user } = useAuth();
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,8 +119,9 @@ export default function MechanicDashboard() {
     const m = sparePartModal;
     const items = values.items || [];
     if (items.length === 0) { message.error('অন্তত একটি যন্ত্রাংশ যোগ করুন'); return; }
+    const billNos: string[] = [];
     for (const item of items) {
-      await api.post('/spare-parts', {
+      const res = await api.post('/spare-parts', {
         machineId: m.id,
         machineType: m.machineType,
         mfgSerialNo: m.mfgSerialNo,
@@ -131,8 +134,9 @@ export default function MechanicDashboard() {
         reason: item.reason,
         requestedBy: user?.name || user?.username,
       });
+      if (res.data?.billNo) billNos.push(res.data.billNo);
     }
-    message.success(`${items.length}টি যন্ত্রাংশের অনুরোধ সফলভাবে জমা হয়েছে`);
+    message.success(`${items.length}টি যন্ত্রাংশের অনুরোধ সফলভাবে জমা হয়েছে (${billNos.join(', ')})`);
     setSparePartModal(null);
     spareForm.resetFields();
     setCatalogOptions([]);
@@ -148,7 +152,7 @@ export default function MechanicDashboard() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <Typography.Title level={4} style={{ margin: 0, fontSize: 'clamp(16px, 4vw, 20px)' }}>
             <ToolOutlined style={{ marginRight: 8 }} />
-            Service Requests
+            {t('service_requests')}
             {reported.length > 0 && <Badge count={reported.length} style={{ marginLeft: 12 }} />}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>

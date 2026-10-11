@@ -14,8 +14,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import api from '../api/client';
 import dayjs from 'dayjs';
 import { getFullName } from '../utils/machineTypes';
+import { useLang } from '../context/LanguageContext';
 
 export default function Dashboard() {
+  const { t } = useLang();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,13 +98,13 @@ export default function Dashboard() {
   const FACTORY_COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16', '#2f54eb', '#a0d911', '#f5222d', '#1da57a'];
 
   const statCards = [
-    { title: 'Total Machines', value: stats.totalMachines, icon: <SettingOutlined />, color: '#1890ff' },
-    { title: 'Under Maintenance', value: stats.underMaintenance, icon: <WarningOutlined />, color: '#ff4d4f' },
-    { title: 'In Transit', value: stats.inTransit, icon: <SwapOutlined />, color: '#faad14' },
-    { title: 'On Loan', value: stats.loanedCount, icon: <ClockCircleOutlined />, color: '#ff7a45' },
-    { title: 'Overdue Loans', value: stats.overdueCount, icon: <ExclamationCircleOutlined />, color: stats.overdueCount > 0 ? '#ff4d4f' : '#8c8c8c' },
-    { title: 'Pending Maintenance', value: stats.pendingMaintenance, icon: <ToolOutlined />, color: '#722ed1' },
-    { title: 'Spare Parts Open', value: stats.sparePartsOpen, icon: <BuildOutlined />, color: '#13c2c2' },
+    { title: t('total_machines'), value: stats.totalMachines, icon: <SettingOutlined />, color: '#1890ff' },
+    { title: t('under_repair'), value: stats.underMaintenance, icon: <WarningOutlined />, color: '#ff4d4f' },
+    { title: t('pending_transfers'), value: stats.inTransit, icon: <SwapOutlined />, color: '#faad14' },
+    { title: t('on_loan'), value: stats.loanedCount, icon: <ClockCircleOutlined />, color: '#ff7a45' },
+    { title: t('overdue_loans'), value: stats.overdueCount, icon: <ExclamationCircleOutlined />, color: stats.overdueCount > 0 ? '#ff4d4f' : '#8c8c8c' },
+    { title: t('maintenance'), value: stats.pendingMaintenance, icon: <ToolOutlined />, color: '#722ed1' },
+    { title: t('spare_parts_pending'), value: stats.sparePartsOpen, icon: <BuildOutlined />, color: '#13c2c2' },
   ];
 
   const breakdownColumns = [
@@ -156,7 +158,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '16px 20px' }}>
-      <Typography.Title level={4}>Dashboard</Typography.Title>
+      <Typography.Title level={4}>{t('dashboard')}</Typography.Title>
 
       {stats.overdueCount > 0 && (
         <Alert
@@ -213,7 +215,7 @@ export default function Dashboard() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={12}>
-          <Card title="Machines by Factory" size="small">
+          <Card title={t('machines_by_factory')} size="small">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={factoryChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -230,7 +232,7 @@ export default function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Top Machine Types" size="small">
+          <Card title={t('machines_by_type')} size="small">
             <ResponsiveContainer width="100%" height={Math.max(250, topMachineTypes.length * 40)}>
               <BarChart data={topMachineTypes} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
@@ -244,7 +246,7 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      <Card title="Recent Breakdown Activity" size="small" style={{ marginTop: 16 }}>
+      <Card title={t('recent_activity')} size="small" style={{ marginTop: 16 }}>
         <Table
           dataSource={recentBreakdowns}
           columns={breakdownColumns}

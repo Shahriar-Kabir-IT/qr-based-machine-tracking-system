@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, ILike, In } from 'typeorm';
+import { Repository, Not, ILike, In, Like } from 'typeorm';
 import { SparePartRequest, SparePartStatus } from './entities/spare-part.entity';
 import { SparePartCatalog } from './entities/spare-part-catalog.entity';
 
@@ -13,7 +13,17 @@ export class SparePartsService {
     private catalogRepo: Repository<SparePartCatalog>,
   ) {}
 
-  async findAll(): Promise<SparePartRequest[]> {
+  async findAll(search?: string): Promise<SparePartRequest[]> {
+    if (search) {
+      return this.sparePartsRepo.createQueryBuilder('r')
+        .leftJoinAndSelect('r.machine', 'machine')
+        .where('r.billNo ILIKE :s', { s: `%${search}%` })
+        .orWhere('r.part ILIKE :s', { s: `%${search}%` })
+        .orWhere('r.requestedBy ILIKE :s', { s: `%${search}%` })
+        .orWhere('machine.machineId ILIKE :s', { s: `%${search}%` })
+        .orderBy('r.requestedAt', 'DESC')
+        .getMany();
+    }
     return this.sparePartsRepo.find({ relations: { machine: true }, order: { requestedAt: 'DESC' } });
   }
 
@@ -29,8 +39,22 @@ export class SparePartsService {
     return this.sparePartsRepo.findOne({ where: { id }, relations: { machine: true } });
   }
 
+  private async generateBillNo(): Promise<string> {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `SB-${yy}${mm}`;
+    const last = await this.sparePartsRepo.createQueryBuilder('r')
+      .where('r.billNo LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('r.billNo', 'DESC')
+      .getOne();
+    const seq = last?.billNo ? Number(last.billNo.slice(-4)) + 1 : 1;
+    return `${prefix}-${String(seq).padStart(4, '0')}`;
+  }
+
   async create(data: Partial<SparePartRequest>): Promise<SparePartRequest> {
-    const req = this.sparePartsRepo.create({ ...data, status: SparePartStatus.PENDING });
+    const billNo = await this.generateBillNo();
+    const req = this.sparePartsRepo.create({ ...data, billNo, status: SparePartStatus.PENDING });
     return this.sparePartsRepo.save(req);
   }
 

@@ -3,6 +3,7 @@ import { Table, Button, Tag, Typography, message, Card, Row, Col, Statistic, Tab
 import { InboxOutlined, ExportOutlined, FileTextOutlined, PrinterOutlined, SwapOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 import { getFullName } from '../utils/machineTypes';
 
@@ -47,6 +48,7 @@ const transferStatusColor: Record<string, string> = {
 };
 
 export default function SecurityDashboard() {
+  const { t } = useLang();
   const [rentals, setRentals] = useState<any[]>([]);
   const [rentalHistory, setRentalHistory] = useState<any[]>([]);
   const [transfers, setTransfers] = useState<any[]>([]);
@@ -363,7 +365,7 @@ ${isReceiving ? `
 
   return (
     <div style={{ padding: '16px 20px' }}>
-      <Typography.Title level={4}>Security Dashboard</Typography.Title>
+      <Typography.Title level={4}>{t('security_dashboard')}</Typography.Title>
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={6}><Card size="small" styles={{ body: { padding: '8px 12px' } }} style={{ borderLeft: '3px solid #fa8c16' }}><Statistic title={<span style={{ fontSize: 11 }}>Rental — Pending Receive</span>} value={pendingReceive.length} valueStyle={{ color: '#fa8c16', fontSize: 20 }} /></Card></Col>

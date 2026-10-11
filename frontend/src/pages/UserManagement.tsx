@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Space, Typography, message, Tag, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../api/client';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 const roleOptions = [
@@ -26,6 +27,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function UserManagement() {
+  const { t } = useLang();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -101,7 +103,7 @@ export default function UserManagement() {
   return (
     <div style={{ padding: '16px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>User Management</Typography.Title>
+        <Typography.Title level={4} style={{ margin: 0 }}>{t('user_management')}</Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Create User</Button>
       </div>
 

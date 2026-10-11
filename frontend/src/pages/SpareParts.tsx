@@ -4,6 +4,7 @@ import { PlusOutlined, ToolOutlined, DatabaseOutlined, BarChartOutlined } from '
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 const statusLabels: Record<string, string> = {
@@ -20,13 +21,16 @@ function RequestsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [machines, setMachines] = useState<any[]>([]);
   const [catalogOptions, setCatalogOptions] = useState<any[]>([]);
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
   const { isSuperAdmin } = useAuth();
 
   const load = useCallback(() => {
     setLoading(true);
-    api.get('/spare-parts').then((res) => { setRequests(res.data); setLoading(false); });
-  }, []);
+    const params: any = {};
+    if (searchText) params.search = searchText;
+    api.get('/spare-parts', { params }).then((res) => { setRequests(res.data); setLoading(false); });
+  }, [searchText]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -69,6 +73,7 @@ function RequestsTab() {
   };
 
   const columns = [
+    { title: 'Bill No', dataIndex: 'billNo', key: 'billNo', width: 130, render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#1890ff' }}>{v}</span> : '—' },
     { title: 'Machine No', dataIndex: ['machine', 'machineId'], key: 'asset', render: (v: string) => v || 'N/A' },
     { title: 'Type', dataIndex: 'machineType', key: 'type' },
     { title: 'Part', dataIndex: 'part', key: 'part' },
@@ -90,7 +95,14 @@ function RequestsTab() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <Input.Search
+          placeholder="Search by Bill No, Part, Machine, or Requester"
+          allowClear
+          style={{ width: 360 }}
+          onSearch={(v) => setSearchText(v)}
+          enterButton
+        />
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Request Part</Button>
       </div>
       <Table dataSource={requests} columns={columns} rowKey="id" loading={loading} size="small" />
@@ -284,15 +296,16 @@ function AnalyticsTab() {
 }
 
 export default function SpareParts() {
+  const { t } = useLang();
   return (
     <div style={{ padding: '16px 20px' }}>
-      <Typography.Title level={4} style={{ margin: '0 0 16px' }}>Spare Parts</Typography.Title>
+      <Typography.Title level={4} style={{ margin: '0 0 16px' }}>{t('spare_parts')}</Typography.Title>
       <Tabs
         defaultActiveKey="requests"
         items={[
-          { key: 'requests', label: <span><ToolOutlined /> Requests</span>, children: <RequestsTab /> },
-          { key: 'catalog', label: <span><DatabaseOutlined /> Parts Catalog</span>, children: <CatalogTab /> },
-          { key: 'analytics', label: <span><BarChartOutlined /> Analytics</span>, children: <AnalyticsTab /> },
+          { key: 'requests', label: <span><ToolOutlined /> {t('requests')}</span>, children: <RequestsTab /> },
+          { key: 'catalog', label: <span><DatabaseOutlined /> {t('parts_catalog')}</span>, children: <CatalogTab /> },
+          { key: 'analytics', label: <span><BarChartOutlined /> {t('analytics')}</span>, children: <AnalyticsTab /> },
         ]}
       />
     </div>

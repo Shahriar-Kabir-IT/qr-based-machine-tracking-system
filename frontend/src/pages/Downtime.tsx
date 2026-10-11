@@ -3,6 +3,7 @@ import { Table, Tag, Typography, Button, Modal, Descriptions, Tooltip, Select, S
 import { EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 const statusColor: Record<string, string> = {
@@ -20,6 +21,7 @@ const factoryOptions = [
 ];
 
 export default function Downtime() {
+  const { t } = useLang();
   const { user, isSuperAdmin } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [records, setRecords] = useState<any[]>([]);
@@ -53,15 +55,15 @@ export default function Downtime() {
 
   const columns = [
     {
-      title: 'Machine No', dataIndex: ['machine', 'machineId'], key: 'asset', width: 130,
+      title: t('machine_no'), dataIndex: ['machine', 'machineId'], key: 'asset', width: 130,
       render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12 }}>{v}</span> : '—',
     },
-    { title: 'Type', dataIndex: 'machineType', key: 'type', width: 70, render: (v: string) => <Tag color="blue" style={{ margin: 0 }}>{v}</Tag> },
-    { title: 'Floor', dataIndex: 'floor', key: 'floor', width: 60 },
-    { title: 'Line', dataIndex: 'line', key: 'line', width: 60, render: (v: string) => v || '—' },
-    { title: 'Issue', dataIndex: 'issueDescription', key: 'issue', ellipsis: true },
+    { title: t('type'), dataIndex: 'machineType', key: 'type', width: 70, render: (v: string) => <Tag color="blue" style={{ margin: 0 }}>{v}</Tag> },
+    { title: t('floor'), dataIndex: 'floor', key: 'floor', width: 60 },
+    { title: t('line'), dataIndex: 'line', key: 'line', width: 60, render: (v: string) => v || '—' },
+    { title: t('issue'), dataIndex: 'issueDescription', key: 'issue', ellipsis: true },
     {
-      title: 'Status', dataIndex: 'status', key: 'status', width: 140,
+      title: t('status'), dataIndex: 'status', key: 'status', width: 140,
       render: (s: string) => <Tag color={statusColor[s]}>{statusLabel[s]}</Tag>,
       filters: Object.entries(statusLabel).map(([value, text]) => ({ text, value })),
       onFilter: (value: any, record: any) => record.status === value,
@@ -87,7 +89,7 @@ export default function Downtime() {
       <div className="dt-header">
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            Downtime Monitoring
+            {t('downtime')}
             {selectedFactory && <Tag color="blue" style={{ marginLeft: 8, verticalAlign: 'middle' }}>{selectedFactory}</Tag>}
             {selectedFloor && <Tag color="geekblue" style={{ marginLeft: 4, verticalAlign: 'middle' }}>{selectedFloor}</Tag>}
           </Typography.Title>

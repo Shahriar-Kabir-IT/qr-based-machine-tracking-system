@@ -4,6 +4,7 @@ import { PlusOutlined, ClockCircleOutlined, CloseCircleOutlined, InboxOutlined, 
 import type { ColumnsType } from 'antd/es/table';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { getMachineTypeDisplay } from '../utils/machineTypes';
 import dayjs from 'dayjs';
 
@@ -35,6 +36,7 @@ const sectionLabels: Record<string, string> = { SE: 'Sewing', CU: 'Cutting', UT:
 import { machineTypeOptions } from '../utils/machineTypes';
 
 export default function UserDashboard() {
+  const { t } = useLang();
   const { user } = useAuth();
   const facility = user?.facility || '';
 
@@ -306,7 +308,7 @@ export default function UserDashboard() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <Typography.Title level={4} style={{ margin: 0 }}>{facility} Factory Dashboard</Typography.Title>
+          <Typography.Title level={4} style={{ margin: 0 }}>{facility} {t('dashboard')}</Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>Manage machines and track approvals</Typography.Text>
         </div>
       </div>

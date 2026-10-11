@@ -3,6 +3,7 @@ import { Table, Button, Modal, Form, Input, Select, Tag, Space, Typography, mess
 import { PlusOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 const facilityNames: Record<string, string> = {
@@ -17,7 +18,8 @@ const statusLabels: Record<string, string> = {
   first_approved: '1st Approved (HoD)',
   second_approved: '2nd Approved (Admin)',
   dispatched: 'Dispatched',
-  received: 'Received (Dest. Security)',
+  received: 'Security Received',
+  condition_confirmed: 'Confirmed & Added',
   completed: 'Completed',
   rejected: 'Rejected',
   return_requested: 'Return Requested',
@@ -25,11 +27,11 @@ const statusLabels: Record<string, string> = {
   return_second_approved: 'Return 2nd Approved (Admin)',
   return_dispatched: 'Return Dispatched',
   returned: 'Returned',
-  condition_confirmed: 'Condition Confirmed',
   return_approved: 'Returned',
 };
 
 export default function Transfers() {
+  const { t } = useLang();
   const [transfers, setTransfers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -117,22 +119,22 @@ export default function Transfers() {
 
   const statusColor: Record<string, string> = {
     requested: 'blue', first_approved: 'cyan', second_approved: 'geekblue',
-    dispatched: 'orange', received: 'green', completed: 'green', rejected: 'red',
+    dispatched: 'orange', received: 'lime', condition_confirmed: 'green', completed: 'green', rejected: 'red',
     return_requested: 'volcano', return_first_approved: 'gold', return_second_approved: 'lime',
     return_dispatched: 'orange', returned: 'green',
-    condition_confirmed: 'green', return_approved: 'green',
+    return_approved: 'green',
   };
 
   const isSecurity = user?.role === 'security';
 
-  const loanActiveStatuses = ['received', 'return_requested', 'return_first_approved', 'return_second_approved', 'return_dispatched'];
+  const loanActiveStatuses = ['received', 'condition_confirmed', 'return_requested', 'return_first_approved', 'return_second_approved', 'return_dispatched'];
 
   const columns = [
-    { title: 'Machine No', dataIndex: ['machine', 'machineId'], key: 'asset', render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> : 'N/A' },
-    { title: 'From', key: 'from', render: (_: any, r: any) => `${r.fromFacility} / ${r.fromFloor}${r.fromSection ? ' / ' + r.fromSection : ''}${r.fromLine ? ' / L' + r.fromLine : ''}` },
-    { title: 'To', key: 'to', render: (_: any, r: any) => `${r.toFacility} / ${r.toFloor}${r.toSection ? ' / ' + r.toSection : ''}${r.toLine ? ' / L' + r.toLine : ''}` },
+    { title: t('machine_no'), dataIndex: ['machine', 'machineId'], key: 'asset', render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> : 'N/A' },
+    { title: t('from'), key: 'from', render: (_: any, r: any) => `${r.fromFacility} / ${r.fromFloor}${r.fromSection ? ' / ' + r.fromSection : ''}${r.fromLine ? ' / L' + r.fromLine : ''}` },
+    { title: t('to'), key: 'to', render: (_: any, r: any) => `${r.toFacility} / ${r.toFloor}${r.toSection ? ' / ' + r.toSection : ''}${r.toLine ? ' / L' + r.toLine : ''}` },
     {
-      title: 'Basis', dataIndex: 'basis', key: 'basis',
+      title: t('basis'), dataIndex: 'basis', key: 'basis',
       render: (v: string, r: any) => (
         <span>
           <Tag color={v === 'permanent' ? 'purple' : v === 'internal' ? 'gold' : 'cyan'} style={{ margin: 0 }}>{v?.toUpperCase()}</Tag>
@@ -144,17 +146,17 @@ export default function Transfers() {
         </span>
       ),
     },
-    { title: 'Reason', dataIndex: 'reason', key: 'reason', ellipsis: true },
-    { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColor[s]}>{statusLabels[s] || s}</Tag> },
-    { title: 'Requested', dataIndex: 'requestedAt', key: 'time', render: (v: string) => dayjs(v).format('DD MMM HH:mm') },
+    { title: t('reason'), dataIndex: 'reason', key: 'reason', ellipsis: true },
+    { title: t('status'), dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColor[s]}>{statusLabels[s] || s}</Tag> },
+    { title: t('date'), dataIndex: 'requestedAt', key: 'time', render: (v: string) => dayjs(v).format('DD MMM HH:mm') },
     {
-      title: 'Actions', key: 'actions',
+      title: t('actions'), key: 'actions',
       render: (_: any, record: any) => (
         <Space>
-          <Button size="small" onClick={() => setDetailModal(record)}>View</Button>
+          <Button size="small" onClick={() => setDetailModal(record)}>{t('view')}</Button>
           {/* Outgoing flow */}
-          {record.status === 'requested' && isSuperAdmin && (
-            <Button size="small" type="primary" onClick={() => handleAction(record.id, 'first-approve')}>Approve</Button>
+          {record.status === 'requested' && (isSuperAdmin || (user?.role === 'user' && record.basis === 'internal')) && (
+            <Button size="small" type="primary" onClick={() => handleAction(record.id, 'first-approve')}>{t('approve')}</Button>
           )}
           {record.status === 'first_approved' && (isSuperAdmin || isAdmin) && record.basis !== 'internal' && (
             <Button size="small" type="primary" onClick={() => handleAction(record.id, 'second-approve')}>2nd Approve</Button>
@@ -171,9 +173,13 @@ export default function Transfers() {
               <Button size="small" danger onClick={() => setRejectModal(record.id)}>Reject</Button>
             </>
           )}
+          {/* Work Study confirms & adds to inventory */}
+          {record.status === 'received' && isSuperAdmin && (
+            <Button size="small" type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleAction(record.id, 'condition-confirm')}>{t('confirm_add_inventory')}</Button>
+          )}
           {/* Loan return flow */}
-          {record.status === 'received' && record.basis === 'loan' && (isSuperAdmin || isAdmin) && (
-            <Button size="small" style={{ background: '#fa8c16', borderColor: '#fa8c16', color: '#fff' }} onClick={() => handleAction(record.id, 'request-return')}>Request Return</Button>
+          {record.status === 'condition_confirmed' && record.basis === 'loan' && (isSuperAdmin || isAdmin) && (
+            <Button size="small" style={{ background: '#fa8c16', borderColor: '#fa8c16', color: '#fff' }} onClick={() => handleAction(record.id, 'request-return')}>{t('request_return')}</Button>
           )}
           {record.status === 'return_requested' && isSuperAdmin && (
             <Button size="small" type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleAction(record.id, 'approve-return')}>1st Approve Return</Button>
@@ -204,10 +210,10 @@ export default function Transfers() {
   return (
     <div style={{ padding: '16px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>Transfers</Typography.Title>
+        <Typography.Title level={4} style={{ margin: 0 }}>{t('transfers')}</Typography.Title>
         <Space>
           <Select
-            placeholder="Filter by Factory"
+            placeholder={t('filter_by_factory')}
             allowClear
             onChange={(v) => setFacilityFilter(v)}
             style={{ width: 160 }}
@@ -218,7 +224,7 @@ export default function Transfers() {
               { value: 'ASL', label: 'ASL' },
             ]}
           />
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>New Transfer</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>{t('new_transfer')}</Button>
         </Space>
       </div>
 
@@ -405,13 +411,13 @@ export default function Transfers() {
           if (detailModal.basis === 'internal') {
             allSteps = ['requested', 'completed'];
           } else if (detailModal.basis === 'loan') {
-            allSteps = ['requested', 'first_approved', 'second_approved', 'dispatched', 'received', 'return_requested', 'return_first_approved', 'return_second_approved', 'return_dispatched', 'returned'];
+            allSteps = ['requested', 'first_approved', 'second_approved', 'dispatched', 'received', 'condition_confirmed', 'return_requested', 'return_first_approved', 'return_second_approved', 'return_dispatched', 'returned'];
           } else {
-            allSteps = ['requested', 'first_approved', 'second_approved', 'dispatched', 'received'];
+            allSteps = ['requested', 'first_approved', 'second_approved', 'dispatched', 'received', 'condition_confirmed'];
           }
           const stepLabelsMap: Record<string, string> = {
             requested: 'Requested', first_approved: 'HoD Approved', second_approved: 'Admin Approved',
-            dispatched: 'Dispatched', received: 'Received', completed: 'Completed',
+            dispatched: 'Dispatched', received: 'Security Received', condition_confirmed: 'Confirmed', completed: 'Completed',
             return_requested: 'Return Req.', return_first_approved: 'Return HoD', return_second_approved: 'Return Admin',
             return_dispatched: 'Return Dispatched', returned: 'Returned',
           };

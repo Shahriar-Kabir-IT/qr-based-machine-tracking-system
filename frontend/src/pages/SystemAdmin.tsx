@@ -15,6 +15,7 @@ import {
   DashboardOutlined,
 } from '@ant-design/icons';
 import api from '../api/client';
+import { useLang } from '../context/LanguageContext';
 
 interface HealthData {
   status: string;
@@ -46,6 +47,7 @@ function formatUptime(seconds: number) {
 }
 
 export default function SystemAdmin() {
+  const { t } = useLang();
   const [health, setHealth] = useState<HealthData | null>(null);
   const [tables, setTables] = useState<TableStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +169,7 @@ export default function SystemAdmin() {
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
             <CloudServerOutlined style={{ marginRight: 8 }} />
-            System Administration
+            {t('system_admin')}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>Server, Database, Network, API & Data Management</Typography.Text>
         </div>

@@ -2,9 +2,11 @@ import { useEffect, useState, useRef } from 'react';
 import { Card, Button, Tag, Typography, Modal, Empty, Badge, message, Row, Col, Statistic, Descriptions, Input, Tabs, Table } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, PrinterOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import api from '../api/client';
+import { useLang } from '../context/LanguageContext';
 import dayjs from 'dayjs';
 
 export default function TechManagerDashboard() {
+  const { t } = useLang();
   const [pending, setPending] = useState<any[]>([]);
   const [allRequests, setAllRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,7 @@ export default function TechManagerDashboard() {
   };
 
   const historyColumns = [
+    { title: 'বিল নং', dataIndex: 'billNo', key: 'billNo', width: 130, render: (v: string) => v ? <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#1890ff' }}>{v}</span> : '—' },
     { title: 'তারিখ', dataIndex: 'requestedAt', key: 'date', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YY') },
     { title: 'মেশিন', dataIndex: ['machine', 'machineId'], key: 'machine', width: 120 },
     { title: 'যন্ত্রাংশ', dataIndex: 'part', key: 'part', ellipsis: true },
@@ -95,7 +98,7 @@ export default function TechManagerDashboard() {
     <div style={{ padding: '16px 20px' }}>
       <Typography.Title level={4} style={{ margin: '0 0 16px' }}>
         <ClockCircleOutlined style={{ marginRight: 8 }} />
-        যন্ত্রাংশ অনুমোদন
+        {t('spare_part_approval')}
         {pending.length > 0 && <Badge count={pending.length} style={{ marginLeft: 12 }} />}
       </Typography.Title>
 
@@ -130,6 +133,7 @@ export default function TechManagerDashboard() {
                 {pending.map((r) => (
                   <Card key={r.id} size="small" style={{ marginBottom: 10, borderLeft: '4px solid #fa8c16' }}>
                     <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
+                      <Descriptions.Item label="বিল নং"><span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#1890ff' }}>{r.billNo || `SR-${String(r.id).padStart(4, '0')}`}</span></Descriptions.Item>
                       <Descriptions.Item label="মেশিন নং"><span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.machine?.machineId || r.machineType}</span></Descriptions.Item>
                       <Descriptions.Item label="মেশিন টাইপ">{r.machineType}</Descriptions.Item>
                       <Descriptions.Item label="যন্ত্রাংশ"><strong>{r.part}</strong></Descriptions.Item>
@@ -199,7 +203,7 @@ export default function TechManagerDashboard() {
               <tbody>
                 <tr>
                   <td style={{ border: '1px solid #333', padding: '6px 10px', width: '50%' }}><strong>তারিখ:</strong> {dayjs(printData.requestedAt).format('DD/MM/YYYY')}</td>
-                  <td style={{ border: '1px solid #333', padding: '6px 10px' }}><strong>অনুরোধ নং:</strong> SR-{String(printData.id).padStart(4, '0')}</td>
+                  <td style={{ border: '1px solid #333', padding: '6px 10px' }}><strong>অনুরোধ নং:</strong> {printData.billNo || `SR-${String(printData.id).padStart(4, '0')}`}</td>
                 </tr>
                 <tr>
                   <td style={{ border: '1px solid #333', padding: '6px 10px' }}><strong>বিভাগ:</strong> সুইং (Sewing)</td>
