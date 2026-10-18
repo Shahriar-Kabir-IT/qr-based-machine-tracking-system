@@ -207,16 +207,11 @@ export default function UserDashboard() {
       },
     },
     {
-      title: '', key: 'action', width: 70, align: 'center' as const,
+      title: '', key: 'action', width: 40, align: 'center' as const,
       render: (_: any, record: any) => (
-        <Space size={2}>
-          <Tooltip title="View Details">
-            <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setMachineDetailModal(record)} style={{ padding: '0 4px' }} />
-          </Tooltip>
-          <Tooltip title="Transfer">
-            <Button size="small" type="text" icon={<SwapOutlined />} onClick={() => { setTransferModal(record); transferForm.resetFields(); setBasisValue(null); }} style={{ padding: '0 4px' }} />
-          </Tooltip>
-        </Space>
+        <Tooltip title="View Details">
+          <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setMachineDetailModal(record)} style={{ padding: '0 4px' }} />
+        </Tooltip>
       ),
     },
   ];
@@ -343,6 +338,7 @@ export default function UserDashboard() {
           size="small"
           tabBarExtraContent={
             <Space size={4}>
+              <Button icon={<SwapOutlined />} size="small" onClick={() => { setTransferModal({}); transferForm.resetFields(); setBasisValue(null); }}>Transfer Machine</Button>
               <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { form.setFieldsValue({ facility, section: 'SE' }); setAddModal(true); }}>Add Machine</Button>
             </Space>
           }
@@ -422,17 +418,33 @@ export default function UserDashboard() {
         </Form>
       </Modal>
 
-      <Modal title={transferModal ? `Transfer — ${transferModal.machineId}` : 'Transfer'} open={!!transferModal} onCancel={() => { setTransferModal(null); setBasisValue(null); }} onOk={() => transferForm.submit()} okText="Submit Request" width={460}>
+      <Modal title={transferModal?.machineId ? `Transfer — ${transferModal.machineId}` : 'Transfer Machine'} open={!!transferModal} onCancel={() => { setTransferModal(null); setBasisValue(null); }} onOk={() => transferForm.submit()} okText="Submit Request" width={460}>
         {transferModal && (
           <div>
-            <div style={{ marginBottom: 12, padding: 8, background: '#fafafa', borderRadius: 6, fontSize: 12 }}>
-              <Row gutter={8}>
-                <Col span={12}><span style={{ color: '#8c8c8c' }}>Asset ID:</span> <strong style={{ fontFamily: 'monospace' }}>{transferModal.machineId}</strong></Col>
-                <Col span={12}><span style={{ color: '#8c8c8c' }}>Type:</span> <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>{transferModal.machineType}</Tag></Col>
-                <Col span={12}><span style={{ color: '#8c8c8c' }}>Location:</span> {transferModal.currentFacility}/{transferModal.currentFloor}</Col>
-                <Col span={12}><span style={{ color: '#8c8c8c' }}>Machine:</span> <span style={{ fontFamily: 'monospace' }}>{transferModal.machineId}</span></Col>
-              </Row>
-            </div>
+            {transferModal.machineId ? (
+              <div style={{ marginBottom: 12, padding: 8, background: '#fafafa', borderRadius: 6, fontSize: 12 }}>
+                <Row gutter={8}>
+                  <Col span={12}><span style={{ color: '#8c8c8c' }}>Asset ID:</span> <strong style={{ fontFamily: 'monospace' }}>{transferModal.machineId}</strong></Col>
+                  <Col span={12}><span style={{ color: '#8c8c8c' }}>Type:</span> <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>{transferModal.machineType}</Tag></Col>
+                  <Col span={12}><span style={{ color: '#8c8c8c' }}>Location:</span> {transferModal.currentFacility}/{transferModal.currentFloor}</Col>
+                  <Col span={12}><span style={{ color: '#8c8c8c' }}>Machine:</span> <span style={{ fontFamily: 'monospace' }}>{transferModal.machineId}</span></Col>
+                </Row>
+              </div>
+            ) : (
+              <Form.Item label="Select Machine" required style={{ marginBottom: 12 }}>
+                <Select
+                  showSearch
+                  placeholder="Search by machine ID, type, or brand"
+                  optionFilterProp="label"
+                  onChange={(id) => {
+                    const m = machines.find((mc: any) => mc.id === id);
+                    if (m) setTransferModal(m);
+                  }}
+                  options={machines.map((m: any) => ({ value: m.id, label: `${m.machineId} — ${m.machineType} — ${m.brand || 'N/A'}` }))}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            )}
             <Form form={transferForm} onFinish={handleTransferRequest} layout="vertical" size="small">
               <Form.Item name="basis" label="Transfer Type" rules={[{ required: true }]}>
                 <Select
